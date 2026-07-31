@@ -1,0 +1,27 @@
+# Dependencies — never commit these, they're huge and regenerated from
+# package.json + package-lock.json via `npm install`. The ** matches
+# node_modules inside ANY service folder, at any depth.
+**/node_modules
+
+# Compiled TypeScript output — regenerated from src/ via `npm run build`.
+# Committing compiled JS alongside its source is redundant and just
+# causes noisy diffs on every change.
+**/dist
+
+# Environment files — these hold real secrets (DB passwords, JWT
+# secrets). NEVER commit them. Only .env.example (which has placeholder
+# values) should ever be in git.
+**/.env
+**/.env.local
+
+# Logs
+**/*.log
+npm-debug.log*
+
+# OS/editor noise
+.DS_Store
+.vscode/
+.idea/
+
+# Docker
+**/docker-compose.override.yml
