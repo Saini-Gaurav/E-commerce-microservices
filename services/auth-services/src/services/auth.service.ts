@@ -17,6 +17,7 @@ import {
   hashToken,
   getRefreshTokenExpiry,
 } from "../utils/token.util";
+import { getPermissionsForRole } from "./rbac.cache";
 
 // Every new registration gets these unless a higher-privilege flow
 // (e.g. an admin creating a staff account) explicitly assigns another
@@ -46,18 +47,29 @@ export class AuthError extends Error {
 }
 
 // What we return to the controller after a successful login/register/
-// refresh: a safe (no password_hash!) user object, plus both raw tokens
+// refresh: a safe (no password_hash!) user object — now including the
+// FULL permissions array for that user's role — plus both raw tokens
 // ready to be put in cookies.
 export interface AuthResult {
-  user: Omit<UserRow, "password_hash">;
+  user: Omit<UserRow, "password_hash"> & { permissions: string[] };
   accessToken: string;
   refreshToken: string;
 }
 
-/** Strips password_hash before this user object goes anywhere near a response. */
-function toSafeUser(user: UserRow): Omit<UserRow, "password_hash"> {
+/**
+ * Builds the user object sent back to the client: strips password_hash
+ * (never send that anywhere), and attaches the current permission list
+ * for this user's role, read straight from the in-memory RBAC cache —
+ * no extra DB query needed, since that cache is already loaded.
+ */
+function buildAuthUser(
+  user: UserRow
+): Omit<UserRow, "password_hash"> & { permissions: string[] } {
   const { password_hash, ...safeUser } = user;
-  return safeUser;
+  return {
+    ...safeUser,
+    permissions: getPermissionsForRole(user.role_code),
+  };
 }
 
 /**
@@ -70,7 +82,10 @@ async function issueTokenPair(
 ): Promise<{ accessToken: string; refreshToken: string }> {
   const accessToken = signAccessToken({
     userId: user.id,
+    name: user.name,
     roleCode: user.role_code,
+    role: user.role,
+    permissions: getPermissionsForRole(user.role_code),
   });
 
   const refreshToken = generateRefreshToken();
@@ -102,7 +117,7 @@ export async function register(input: {
   });
 
   const tokens = await issueTokenPair(user);
-  return { user: toSafeUser(user), ...tokens };
+  return { user: buildAuthUser(user), ...tokens };
 }
 
 export async function login(input: {
@@ -127,7 +142,7 @@ export async function login(input: {
   }
 
   const tokens = await issueTokenPair(user);
-  return { user: toSafeUser(user), ...tokens };
+  return { user: buildAuthUser(user), ...tokens };
 }
 
 /**
@@ -175,7 +190,7 @@ export async function refresh(rawRefreshToken: string): Promise<AuthResult> {
   // Rotate: revoke the old token and point it at the new one's hash.
   await revokeRefreshToken(tokenHash, hashToken(tokens.refreshToken));
 
-  return { user: toSafeUser(user), ...tokens };
+  return { user: buildAuthUser(user), ...tokens };
 }
 
 /** Logs out one session by revoking just the refresh token presented. */

@@ -14,6 +14,13 @@
 **/.env
 **/.env.local
 
+# JWT signing keys — the PRIVATE key must never be committed. Each
+# environment (dev/staging/prod) should generate/hold its own. The
+# PUBLIC key (needed by other services to verify tokens) is fine to
+# commit if you want, but we exclude the whole folder for simplicity —
+# regenerate locally via the README instructions instead.
+**/keys/
+
 # Logs
 **/*.log
 npm-debug.log*

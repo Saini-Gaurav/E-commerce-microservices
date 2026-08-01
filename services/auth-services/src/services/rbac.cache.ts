@@ -32,17 +32,30 @@ export async function loadRbacCache(): Promise<void> {
 }
 
 /**
- * The actual check used by middleware on every protected request.
- * Pure in-memory lookup — no database hit here, which is the whole
- * point of caching this rarely-changing data.
+ * Pure in-memory lookup — used at LOGIN time (in auth.service.ts) to
+ * check/build permission info. NOT used by request middleware anymore —
+ * requirePermission() now reads permissions straight off the verified
+ * JWT instead (see rbac.middleware.ts), so this function is kept mainly
+ * as a small utility, not on the hot request path.
  */
 export function hasPermission(roleCode: string, permissionCode: string): boolean {
   if (!isLoaded) {
-    // Fail CLOSED (deny) rather than fail open, if this is ever somehow
-    // checked before loadRbacCache() ran. Better to wrongly reject a
-    // request than to wrongly allow one.
     console.warn("RBAC cache checked before it was loaded — denying by default");
     return false;
   }
   return roleToPermissions.get(roleCode)?.has(permissionCode) ?? false;
+}
+
+/**
+ * Returns every permission code granted to a role, as a plain array.
+ * This is the one actually used now — called once at login/register/
+ * refresh time, in auth.service.ts, to build the permissions array that
+ * gets embedded into the access token.
+ */
+export function getPermissionsForRole(roleCode: string): string[] {
+  if (!isLoaded) {
+    console.warn("RBAC cache read before it was loaded — returning empty list");
+    return [];
+  }
+  return Array.from(roleToPermissions.get(roleCode) ?? []);
 }

@@ -1,28 +1,28 @@
 import { Request, Response, NextFunction } from "express";
-import { hasPermission } from "../services/rbac.cache";
 
 /**
- * The fine-grained guard: "does this user's role have this specific
- * permission?" Use this for most protected routes — it's the whole
- * point of RBAC over a blunt isAdmin check, since you can now express
- * things like "only PRODUCT_DELETE can delete a product" separately
- * from "only ADMIN can manage users," even if today the same role
- * happens to hold both.
+ * The fine-grained guard: "does this request's TOKEN carry this
+ * specific permission?" Since permissions now live directly inside the
+ * verified JWT (see token.util.ts / auth.service.ts), this check is a
+ * pure in-memory array read — no database, no cache lookup, nothing.
+ * This is what makes it safe to copy this exact file into every other
+ * service (catalog-service, order-service, ...): each one authorizes
+ * requests completely independently, with zero runtime dependency on
+ * auth-service or any shared cache being warm/available.
  *
- * Must run AFTER requireAuth — relies on req.user already being set.
+ * Must run AFTER requireAuth — relies on req.user already being set
+ * from the verified token.
  *
  * Usage: router.delete("/:id", requireAuth, requirePermission("PRODUCT_DELETE"), deleteProductHandler)
  */
 export function requirePermission(permissionCode: string) {
   return (req: Request, res: Response, next: NextFunction): void => {
-    const roleCode = req.user?.roleCode;
-
-    if (!roleCode) {
+    if (!req.user) {
       res.status(401).json({ message: "Not authenticated" });
       return;
     }
 
-    if (!hasPermission(roleCode, permissionCode)) {
+    if (!req.user.permissions.includes(permissionCode)) {
       res.status(403).json({
         message: `Missing required permission: ${permissionCode}`,
       });
