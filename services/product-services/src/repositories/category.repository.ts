@@ -53,15 +53,16 @@ export async function updateCategory(
   id: string,
   fields: Partial<Pick<CategoryRow, "name" | "icon" | "color">>
 ): Promise<CategoryRow | null> {
-  const keys = Object.keys(fields);
+  // Filter out keys whose VALUE is undefined, not just missing keys -
+  // this is the actual fix. Object.keys() alone isn't enough here; see
+  // the chat for why {name: undefined} still produces a "name" key.
+  const keys = (Object.keys(fields) as (keyof typeof fields)[]).filter(
+    (key) => fields[key] !== undefined
+  );
   if (keys.length === 0) return findCategoryById(id);
 
-  // Parameterized dynamic SET clause: column names come from our own
-  // trusted `keys` list (never from user input directly), only the
-  // VALUES are placeholders - this is safe. Never do this if the column
-  // names themselves came from req.body.
   const setClause = keys.map((key, i) => `${key} = $${i + 1}`).join(", ");
-  const values = keys.map((key) => (fields as Record<string, unknown>)[key]);
+  const values = keys.map((key) => fields[key]);
 
   const result = await query<CategoryRow>(
     `UPDATE categories SET ${setClause}, updated_at = now() WHERE id = $${keys.length + 1} RETURNING *`,
