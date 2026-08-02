@@ -9,7 +9,8 @@
     "start": "node dist/server.js",
     "migrate:dev": "ts-node src/config/runMigrations.ts",
     "migrate": "node dist/config/runMigrations.js",
-    "generate:keys": "node scripts/generate-keys.js"
+    "generate:keys": "node scripts/generate-keys.js",
+    "seed": "ts-node src/config/seed.ts"
   },
   "engines": {
     "node": "18.x"

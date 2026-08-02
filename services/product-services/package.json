@@ -8,7 +8,8 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "migrate:dev": "ts-node src/config/runMigrations.ts",
-    "migrate": "node dist/config/runMigrations.js"
+    "migrate": "node dist/config/runMigrations.js",
+    "seed": "ts-node src/config/seed.ts"
   },
   "engines": {
     "node": "18.x"
