@@ -1,15 +1,14 @@
 {
-  "name": "product-service",
+  "name": "cart-service",
   "version": "1.0.0",
-  "description": "Owns products and categories. Verifies auth-service's JWT locally, no network call needed.",
+  "description": "Owns each user's cart. Verifies auth-service's JWT locally; calls product-service to enrich items with live price/name/image.",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "migrate:dev": "ts-node src/config/runMigrations.ts",
-    "migrate": "node dist/config/runMigrations.js",
-    "seed": "ts-node src/config/seed.ts"
+    "migrate": "node dist/config/runMigrations.js"
   },
   "engines": {
     "node": "18.x"

@@ -38,14 +38,14 @@ export function requireAuth(
  * Extra guard for admin-only routes. Must run AFTER requireAuth, since it
  * relies on req.user already being set.
  */
-export function requireAdmin(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void {
-  if (!req.user?.isAdmin) {
-    res.status(403).json({ message: "Admin access required" });
-    return;
-  }
-  next();
-}
+// export function requireAdmin(
+//   req: Request,
+//   res: Response,
+//   next: NextFunction
+// ): void {
+//   if (!req.user?.isAdmin) {
+//     res.status(403).json({ message: "Admin access required" });
+//     return;
+//   }
+//   next();
+// }
