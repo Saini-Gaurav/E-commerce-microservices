@@ -7,14 +7,15 @@ import {
   removeCartItem,
   clearCartItems,
 } from "../repositories/cart.repository";
-import { fetchProduct, ProductSnapshot } from "../clients/productService.client";
+// import { fetchProduct, ProductSnapshot } from "../clients/productService.client";  
+import { findProductInCache } from "../repositories/productCache.repository";
 import { ServiceError } from "../utils/errors";
 
 // What we actually send back to the app: each cart line PLUS the product's live name/price/image, not just a bare productId+quantity.
 export interface CartItemResponse {
   productId: string;
   quantity: number;
-  product: ProductSnapshot | null; // null if the product was deleted after being added to the cart
+  // product: ProductSnapshot | null;  // null if the product was deleted after being added to the cart
   lineTotal: number; // price * quantity, 0 if product is missing
 }
 
@@ -30,12 +31,32 @@ export interface CartResponse {
  * product-service one at a time, that's 10x slower than asking for all
  * 10 at once and waiting for the slowest one to finish.
  */
+// async function enrichCartItems(
+//   items: { productId: string; quantity: number }[]
+// ): Promise<CartItemResponse[]> {
+//   const enriched = await Promise.all(
+//     items.map(async (item) => {
+//       const product = await fetchProduct(item.productId);
+//       return {
+//         productId: item.productId,
+//         quantity: item.quantity,
+//         product,
+//         lineTotal: product ? product.price * item.quantity : 0,
+//       };
+//     })
+//   );
+//   return enriched;
+// }
+
 async function enrichCartItems(
   items: { productId: string; quantity: number }[]
 ): Promise<CartItemResponse[]> {
   const enriched = await Promise.all(
     items.map(async (item) => {
-      const product = await fetchProduct(item.productId);
+      const cached = await findProductInCache(item.productId);
+      const product = cached
+        ? { id: cached.id, name: cached.name, price: Number(cached.price), image: cached.image, countInStock: cached.count_in_stock }
+        : null;
       return {
         productId: item.productId,
         quantity: item.quantity,
@@ -72,7 +93,7 @@ export async function addItem(
   }
 
   // Check with product-service FIRST, before touching our own database - no point saving a cart line for a product that doesn't even exist.
-  const product = await fetchProduct(productId);
+  const product = await findProductInCache(productId);
   if (!product) {
     throw new ServiceError("Product not found", 404);
   }
