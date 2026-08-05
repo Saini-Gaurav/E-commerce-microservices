@@ -39,7 +39,7 @@ export interface ProductResponse {
   createdAt: Date;
 }
 
-function toProductResponse(row: ProductRow): ProductResponse {
+export function toProductResponse(row: ProductRow): ProductResponse {
   return {
     id: row.id,
     name: row.name,
