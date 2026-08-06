@@ -137,7 +137,8 @@ export async function createOrder(
   await publishOrderCreated(
     order.id,
     userId,
-    preparedItems.map((i) => ({ productId: i.productId, quantity: i.quantity }))
+    preparedItems.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+    totalPrice
   );
 
   return toOrderResponse(order, items);

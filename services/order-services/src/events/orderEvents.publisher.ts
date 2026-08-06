@@ -22,7 +22,12 @@ export interface OrderCreatedEventItem {
  * hasn't reduced stock yet, than fail to save the order at all over a
  * messaging problem that has nothing to do with "did this order happen."
  */
-export async function publishOrderCreated(orderId: string, userId: string, items: OrderCreatedEventItem[]): Promise<void> {
+export async function publishOrderCreated(
+  orderId: string,
+  userId: string,
+  items: OrderCreatedEventItem[],
+  totalPrice: number   // <-- add this parameter
+): Promise<void> {
   if (!isConnected) {
     console.warn(`Kafka producer not connected - order ${orderId} created, but stock will NOT be decremented`);
     return;
@@ -31,7 +36,7 @@ export async function publishOrderCreated(orderId: string, userId: string, items
     topic: ORDER_EVENTS_TOPIC,
     messages: [{
       key: orderId,
-      value: JSON.stringify({ eventType: "ORDER_CREATED", orderId, userId, items }),
+      value: JSON.stringify({ eventType: "ORDER_CREATED", orderId, userId, items, totalPrice }), // <-- add totalPrice here
     }],
   });
 }
