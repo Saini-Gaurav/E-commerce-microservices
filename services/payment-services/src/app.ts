@@ -3,6 +3,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import morgan from "morgan";
 import paymentRoutes from "./routes/payment.routes";
+import webhookRoutes from "./routes/webhook.routes";
 
 const app: Express = express();
 const API_URL = process.env.API_URL;
@@ -13,6 +14,9 @@ app.use(
     credentials: true,
   })
 );
+// Mounted BEFORE express.json() - order matters here specifically.
+app.use(`${API_URL}/webhooks`, webhookRoutes);
+
 app.use(express.json());
 app.use(cookieParser());
 app.use(morgan("dev"));

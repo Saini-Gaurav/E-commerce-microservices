@@ -137,3 +137,31 @@ export async function getPaymentForOrder(userId: string, orderId: string): Promi
   }
   return toPaymentResponse(payment);
 }
+
+/**
+ * Called from the webhook, independently of /verify. Idempotent on
+ * purpose - Razorpay's own docs say webhooks can be delivered more
+ * than once for the same event, and /verify might have ALREADY marked
+ * this paid a moment earlier. Either order of arrival must be safe.
+ */
+export async function markPaidFromWebhook(
+  razorpayOrderId: string,
+  razorpayPaymentId: string
+): Promise<void> {
+  const payment = await findPaymentByRazorpayOrderId(razorpayOrderId);
+  if (!payment) {
+    console.error(`Webhook for unknown razorpayOrderId: ${razorpayOrderId}`);
+    return;
+  }
+
+  if (payment.status === "PAID") {
+    console.log(`Webhook: payment ${payment.id} already marked PAID, skipping`);
+    return;
+  }
+
+  const updated = await markPaymentPaid(razorpayOrderId, razorpayPaymentId);
+  if (updated) {
+    await publishPaymentCompleted(updated.order_id, updated.id, Number(updated.amount));
+    console.log(`Webhook: payment ${updated.id} marked PAID`);
+  }
+}
