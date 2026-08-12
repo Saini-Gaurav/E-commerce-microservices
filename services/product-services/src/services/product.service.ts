@@ -8,6 +8,7 @@ import {
   ProductRow,
   ProductListFilters,
   CreateProductInput,
+  ProductSortBy
 } from "../repositories/product.repository";
 import { findCategoryById } from "../repositories/category.repository";
 import { ServiceError } from "../utils/errors";
@@ -67,6 +68,9 @@ export interface ListProductsInput {
   categoryId?: string;
   isFeatured?: boolean;
   search?: string;
+  minPrice?: number;      
+  maxPrice?: number;      
+  sortBy?: ProductSortBy;
   page?: number;
   limit?: number;
 }
@@ -82,8 +86,7 @@ export interface PaginatedProducts {
 export async function listProducts(
   input: ListProductsInput,
 ): Promise<PaginatedProducts> {
-  // Clamp instead of trusting the client - a page size of 100000 from a
-  // malicious or buggy client shouldn't be able to force a huge table scan.
+  // Clamp instead of trusting the client - a page size of 100000 from a malicious or buggy client shouldn't be able to force a huge table scan.
   const page = Math.max(1, input.page ?? 1);
   const limit = Math.min(100, Math.max(1, input.limit ?? 20));
   const offset = (page - 1) * limit;
@@ -92,6 +95,9 @@ export async function listProducts(
     categoryId: input.categoryId,
     isFeatured: input.isFeatured,
     search: input.search,
+    minPrice: input.minPrice,   
+    maxPrice: input.maxPrice,   
+    sortBy: input.sortBy,       
     limit,
     offset,
   };

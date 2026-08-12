@@ -23,18 +23,21 @@ export interface ProductRow {
   updated_at: Date;
 }
 
+export type ProductSortBy = "newest" | "price_asc" | "price_desc" | "rating";
+
 export interface ProductListFilters {
   categoryId?: string;
   isFeatured?: boolean;
   search?: string; // matches against name
+  minPrice?: number;      
+  maxPrice?: number;      
+  sortBy?: ProductSortBy; 
   limit: number;
   offset: number;
 }
 
-// Builds the WHERE clause and its parameters together, so the clause
-// text and the $N placeholders can never drift out of sync with each
-// other - a common source of bugs when they're built separately.
-function buildWhereClause(filters: Pick<ProductListFilters, "categoryId" | "isFeatured" | "search">) {
+// Builds the WHERE clause and its parameters together, so the clause text and the $N placeholders can never drift out of sync with each other - a common source of bugs when they're built separately.
+function buildWhereClause(filters: Pick<ProductListFilters, "categoryId" | "isFeatured" | "search" | "minPrice" | "maxPrice">) {
   const conditions: string[] = [];
   const values: unknown[] = [];
 
@@ -51,19 +54,36 @@ function buildWhereClause(filters: Pick<ProductListFilters, "categoryId" | "isFe
     conditions.push(`name ILIKE $${values.length}`); // ILIKE = case-insensitive LIKE
   }
 
+  if (filters.minPrice !== undefined) {
+    values.push(filters.minPrice);
+    conditions.push(`price >= $${values.length}`);
+  }
+  if (filters.maxPrice !== undefined) {
+    values.push(filters.maxPrice);
+    conditions.push(`price <= $${values.length}`);
+  }
+
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
   return { whereClause, values };
 }
+
+const SORT_CLAUSES: Record<ProductSortBy, string> = {
+  newest: "created_at DESC",
+  price_asc: "price ASC",
+  price_desc: "price DESC",
+  rating: "rating DESC",
+};
 
 export async function findProducts(filters: ProductListFilters): Promise<ProductRow[]> {
   const { whereClause, values } = buildWhereClause(filters);
 
   const limitParamIndex = values.length + 1;
   const offsetParamIndex = values.length + 2;
+  const orderByClause = SORT_CLAUSES[filters.sortBy ?? "newest"];
 
   const result = await query<ProductRow>(
     `SELECT * FROM products ${whereClause}
-     ORDER BY created_at DESC
+     ORDER BY ${orderByClause} 
      LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}`,
     [...values, filters.limit, filters.offset]
   );
@@ -71,7 +91,7 @@ export async function findProducts(filters: ProductListFilters): Promise<Product
 }
 
 export async function countProducts(
-  filters: Pick<ProductListFilters, "categoryId" | "isFeatured" | "search">
+  filters: Pick<ProductListFilters, "categoryId" | "isFeatured" | "search" | "minPrice" | "maxPrice">
 ): Promise<number> {
   const { whereClause, values } = buildWhereClause(filters);
   const result = await query<{ count: string }>(
