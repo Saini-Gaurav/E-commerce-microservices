@@ -1,5 +1,6 @@
 import { kafka } from "./kafka";
 import { clearCartItems } from "../repositories/cart.repository";
+import { broadcastCartToUser } from "./sseManager";
 
 const ORDER_EVENTS_TOPIC = "order-events";
 
@@ -27,6 +28,7 @@ export async function startOrderEventsConsumer(): Promise<void> {
       }
 
       await clearCartItems(event.userId);
+      broadcastCartToUser(event.userId, { items: [], itemCount: 0, subtotal: 0 });
       console.log(`Cart cleared for user ${event.userId} after order ${event.orderId}`);
     },
   });

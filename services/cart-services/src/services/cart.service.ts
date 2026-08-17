@@ -10,6 +10,7 @@ import {
 // import { fetchProduct, ProductSnapshot } from "../clients/productService.client";  
 import { findProductInCache } from "../repositories/productCache.repository";
 import { ServiceError } from "../utils/errors";
+import { broadcastCartToUser } from "../events/sseManager";
 
 // What we actually send back to the app: each cart line PLUS the product's live name/price/image, not just a bare productId+quantity.
 export interface CartItemResponse {
@@ -101,7 +102,9 @@ export async function addItem(
   await ensureCartExists(userId);
   await upsertCartItem(userId, productId, quantity);
 
-  return getCart(userId);
+  const cart = await getCart(userId);
+  broadcastCartToUser(userId, cart);
+  return cart;
 }
 
 export async function updateItemQuantity(
@@ -122,7 +125,9 @@ export async function updateItemQuantity(
   }
 
   await setCartItemQuantity(userId, productId, quantity);
-  return getCart(userId);
+  const cart = await getCart(userId);
+  broadcastCartToUser(userId, cart);
+  return cart;
 }
 
 export async function removeItem(userId: string, productId: string): Promise<CartResponse> {
@@ -130,9 +135,12 @@ export async function removeItem(userId: string, productId: string): Promise<Car
   if (!removed) {
     throw new ServiceError("This product is not in your cart", 404);
   }
-  return getCart(userId);
+  const cart = await getCart(userId);
+  broadcastCartToUser(userId, cart);
+  return cart;
 }
 
 export async function clearCart(userId: string): Promise<void> {
   await clearCartItems(userId);
+  broadcastCartToUser(userId, { items: [], itemCount: 0, subtotal: 0 });
 }
