@@ -177,7 +177,7 @@ traditional job queue would.
 
 ## Local setup
 
-**Prerequisites:** Node 18+, PostgreSQL running locally, Docker (for Kafka).
+**Prerequisites:** Node 18+, PostgreSQL running locally, Docker (for Kafka), npm.
 
 **1. Start Kafka:**
 ```bash
@@ -213,7 +213,12 @@ cd services/auth-services && npm run seed
 cd services/product-services && npm run seed
 ```
 
-**6. Start every service** (`npm run dev` in each), in this order:
+**6. Install root development dependencies:**
+
+From the project root:
+
+```bash
+npm install
 ```
 auth-service → product-service → cart-service → order-service → payment-service
 ```
