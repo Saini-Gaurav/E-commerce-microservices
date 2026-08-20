@@ -13,11 +13,7 @@ console.log(API_URL);
 
 app.use(
   cors({
-    // In a microservices setup, the browser calls the API GATEWAY, and
-    // the gateway calls this service — but during local dev we may hit
-    // this service directly too. Restricting to a known frontend origin
-    // (rather than "*") is required anyway, since credentials: true
-    // cookies cannot be used with a wildcard origin.
+    // In a microservices setup, the browser calls the API GATEWAY, and the gateway calls this service — but during local dev we may hit this service directly too. Restricting to a known frontend origin (rather than "*") is required anyway, since credentials: true cookies cannot be used with a wildcard origin.
     origin: process.env.CORS_ORIGIN || "http://localhost:3000",
     credentials: true, // allows cookies to be sent cross-origin
   })
