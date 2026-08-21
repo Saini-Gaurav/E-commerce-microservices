@@ -1,6 +1,8 @@
 import { Router } from "express";
 import {
-  registerHandler,
+  // registerHandler, 
+  registerInitiateHandler,
+  registerVerifyOtpHandler,
   loginHandler,
   refreshHandler,
   logoutHandler,
@@ -13,8 +15,10 @@ import {
 } from "../middlewares/rateLimiter.middleware";
 
 const router = Router();
-
-router.post("/register", authAttemptLimiter, registerHandler);
+ 
+// router.post("/register", authAttemptLimiter, registerHandler); 
+router.post("/register/initiate", authAttemptLimiter, registerInitiateHandler);
+router.post("/register/verify-otp", authAttemptLimiter, registerVerifyOtpHandler);
 router.post("/login", authAttemptLimiter, loginHandler);
 router.post("/refresh", refreshLimiter, refreshHandler);
 router.post("/logout", generalLimiter, logoutHandler);
