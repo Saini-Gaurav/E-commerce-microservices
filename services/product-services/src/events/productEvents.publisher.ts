@@ -32,3 +32,9 @@ export async function publishProductDeleted(productId: string): Promise<void> {
     }],
   });
 }
+
+export async function disconnectProducer(): Promise<void> {
+  await producer.disconnect();
+  isConnected = false;
+  console.log("Kafka producer disconnected");
+}
