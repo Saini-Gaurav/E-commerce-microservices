@@ -25,6 +25,7 @@ const PRODUCT_SERVICE_URL = requireEnv("PRODUCT_SERVICE_URL");
 const CART_SERVICE_URL = requireEnv("CART_SERVICE_URL");
 const ORDER_SERVICE_URL = requireEnv("ORDER_SERVICE_URL");
 const PAYMENT_SERVICE_URL = requireEnv("PAYMENT_SERVICE_URL");
+const NOTIFICATION_SERVICE_URL = requireEnv("NOTIFICATION_SERVICE_URL");
 
 // Security headers on the ONE thing directly reachable from the internet - more important here than on any individual backend service, since this is the actual front door of the whole system.
 app.use(helmet());
@@ -76,6 +77,10 @@ app.use(
 
       if (url.startsWith("/payments")) {
         return PAYMENT_SERVICE_URL;
+      }
+
+      if (url.startsWith("/newsletter") || url.startsWith("/contact")) {
+        return NOTIFICATION_SERVICE_URL;
       }
 
       // Was: return AUTH_SERVICE_URL - silently sent anything unrecognized (typos, old routes, scanner probes) straight to auth-service, which is misleading in logs and mildly risky. Returning undefined lets http-proxy-middleware produce its own clean error for a route that matches nothing real, instead of guessing a destination for it.
