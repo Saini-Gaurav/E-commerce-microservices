@@ -175,3 +175,35 @@ function handleAuthError(err: unknown, res: Response): void {
   console.error("Unexpected auth error:", err);
   res.status(500).json({ message: "Something went wrong" });
 }
+
+export async function forgotPasswordInitiateHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      res.status(400).json({ message: "email is required" });
+      return;
+    }
+
+    await authService.initiatePasswordReset(email);
+
+    // Same message regardless of whether the email actually had an account - see the design note on why this can never differ.
+    res.status(200).json({ message: "If an account exists for this email, a code has been sent" });
+  } catch (err) {
+    handleAuthError(err, res);
+  }
+}
+
+export async function resetPasswordHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const { email, otp, newPassword } = req.body;
+    if (!email || !otp || !newPassword) {
+      res.status(400).json({ message: "email, otp, and newPassword are all required" });
+      return;
+    }
+
+    await authService.resetPassword({ email, otp, newPassword });
+    res.status(200).json({ message: "Password reset successfully - please log in" });
+  } catch (err) {
+    handleAuthError(err, res);
+  }
+}

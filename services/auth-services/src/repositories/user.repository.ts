@@ -62,4 +62,11 @@ export async function findUserById(id: string): Promise<UserRow | undefined> {
     id,
   ]);
   return result.rows[0];
+} 
+
+export async function updateUserPassword(userId: string, passwordHash: string): Promise<void> {
+  await query("UPDATE users SET password_hash = $1, updated_at = now() WHERE id = $2", [
+    passwordHash,
+    userId,
+  ]);
 }

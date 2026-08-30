@@ -6,6 +6,8 @@ import {
   loginHandler,
   refreshHandler,
   logoutHandler,
+  forgotPasswordInitiateHandler, 
+  resetPasswordHandler,
 } from "../controllers/auth.controller";
 import { requireAuth } from "../middlewares/auth.middleware";
 import {
@@ -22,6 +24,8 @@ router.post("/register/verify-otp", authAttemptLimiter, registerVerifyOtpHandler
 router.post("/login", authAttemptLimiter, loginHandler);
 router.post("/refresh", refreshLimiter, refreshHandler);
 router.post("/logout", generalLimiter, logoutHandler);
+router.post("/forgot-password/initiate", authAttemptLimiter, forgotPasswordInitiateHandler);
+router.post("/forgot-password/reset", authAttemptLimiter, resetPasswordHandler);
  
 // A simple protected route to sanity-check requireAuth works:
 // returns the currently logged-in user's info from their access token.

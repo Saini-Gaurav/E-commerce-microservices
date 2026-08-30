@@ -3,6 +3,7 @@ import {
   findUserByEmail,
   findUserById,
   UserRow,
+  updateUserPassword
 } from "../repositories/user.repository";
 import {
   storeRefreshToken,
@@ -20,7 +21,7 @@ import {
 import { getPermissionsForRole } from "./rbac.cache";
 import { redis } from "../config/redis";
 import { generateOtp, hashOtp } from "../utils/otp.util";
-import { sendOtpEmail } from "../utils/mailer.util";
+import { sendOtpEmail, sendPasswordResetOtpEmail } from "../utils/mailer.util";
 
 // Every new registration gets these unless a higher-privilege flow (e.g. an admin creating a staff account) explicitly assigns another role later. Hardcoded on purpose: self-registration should NEVER let the caller pick their own role — imagine a register endpoint that accepted { "roleCode": "ADMIN" } straight from the request body. Since there's no roles table to look these up from anymore, this pair IS the source of truth for "what a brand new user gets" — keep it in sync with the CHECK constraint values in migration 005 if you ever change it.
 const DEFAULT_ROLE_CODE = "CUSTOMER";
@@ -86,6 +87,18 @@ async function issueTokenPair(
 
   return { accessToken, refreshToken };
 }
+
+interface PendingPasswordReset {
+  userId: string;
+  otpHash: string;
+  attempts: number;
+  lastSentAt: number;
+}
+
+function pendingPasswordResetKey(email: string): string {
+  return `pending_password_reset:${email.toLowerCase()}`;
+}
+
 
 // export async function register(input: {
 //   name: string;
@@ -297,3 +310,75 @@ export async function logout(rawRefreshToken: string): Promise<void> {
   const tokenHash = hashToken(rawRefreshToken);
   await revokeRefreshToken(tokenHash);
 }
+
+export async function initiatePasswordReset(email: string): Promise<void> {
+  const user = await findUserByEmail(email);
+
+  if (!user) {
+    // No account - silently do nothing. The caller (controller) still
+    // returns the same "if an account exists, a code was sent"
+    // message regardless, so this early return is invisible from the
+    // outside.
+    return;
+  }
+
+  const key = pendingPasswordResetKey(email);
+  const existingPending = await redis.get(key);
+
+  if (existingPending) {
+    const parsed: PendingPasswordReset = JSON.parse(existingPending);
+    const msSinceLastSend = Date.now() - parsed.lastSentAt;
+    if (msSinceLastSend < RESEND_COOLDOWN_MS) {
+      const waitSeconds = Math.ceil((RESEND_COOLDOWN_MS - msSinceLastSend) / 1000);
+      throw new AuthError(`Please wait ${waitSeconds}s before requesting another code`, 429);
+    }
+  }
+
+  const otp = generateOtp();
+  const pending: PendingPasswordReset = {
+    userId: user.id,
+    otpHash: hashOtp(otp),
+    attempts: 0,
+    lastSentAt: Date.now(),
+  };
+
+  await redis.set(key, JSON.stringify(pending), "EX", OTP_EXPIRY_SECONDS);
+  await sendPasswordResetOtpEmail(email, otp);
+}
+
+export async function resetPassword(input: {
+  email: string;
+  otp: string;
+  newPassword: string;
+}): Promise<void> {
+  const key = pendingPasswordResetKey(input.email);
+  const raw = await redis.get(key);
+
+  if (!raw) {
+    throw new AuthError("No password reset in progress for this email - please start again", 400);
+  }
+
+  const pending: PendingPasswordReset = JSON.parse(raw);
+
+  if (pending.attempts >= MAX_OTP_ATTEMPTS) {
+    await redis.del(key);
+    throw new AuthError("Too many incorrect attempts - please start again", 400);
+  }
+
+  if (hashOtp(input.otp) !== pending.otpHash) {
+    pending.attempts += 1;
+    await redis.set(key, JSON.stringify(pending), "KEEPTTL");
+    throw new AuthError("Incorrect verification code", 400);
+  }
+
+  const newPasswordHash = await hashPassword(input.newPassword);
+  await updateUserPassword(pending.userId, newPasswordHash);
+
+  // Kill every existing session for this user - same function already
+  // built for refresh-token-reuse theft detection, reused here for the
+  // reasoning explained in the design note above.
+  await revokeAllRefreshTokensForUser(pending.userId);
+
+  await redis.del(key);
+}
+
