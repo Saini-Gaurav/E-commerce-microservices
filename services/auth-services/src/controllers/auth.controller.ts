@@ -33,8 +33,7 @@ function setAuthCookies(
     secure: isProduction,
     sameSite: "strict",
     maxAge: REFRESH_TOKEN_MAX_AGE_MS,
-    // Only sent to the refresh endpoint itself — minimizes how many
-    // places this long-lived, powerful token is ever transmitted to.
+    // Only sent to the refresh endpoint itself — minimizes how many places this long-lived, powerful token is ever transmitted to.
     path: `${API_URL}/auth/refresh`,
   });
 }

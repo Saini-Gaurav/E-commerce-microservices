@@ -1,7 +1,6 @@
 import { findAllRolePermissionPairs } from "../repositories/permission.repository";
 
-// roleCode -> Set of permission codes that role is granted.
-// A Set gives us O(1) "does this role have this permission" checks.
+// roleCode -> Set of permission codes that role is granted. A Set gives us O(1) "does this role have this permission" checks.
 let roleToPermissions: Map<string, Set<string>> = new Map();
 let isLoaded = false;
 

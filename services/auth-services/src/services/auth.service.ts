@@ -315,10 +315,7 @@ export async function initiatePasswordReset(email: string): Promise<void> {
   const user = await findUserByEmail(email);
 
   if (!user) {
-    // No account - silently do nothing. The caller (controller) still
-    // returns the same "if an account exists, a code was sent"
-    // message regardless, so this early return is invisible from the
-    // outside.
+    // No account - silently do nothing. The caller (controller) still returns the same "if an account exists, a code was sent" message regardless, so this early return is invisible from the outside.
     return;
   }
 
@@ -374,9 +371,7 @@ export async function resetPassword(input: {
   const newPasswordHash = await hashPassword(input.newPassword);
   await updateUserPassword(pending.userId, newPasswordHash);
 
-  // Kill every existing session for this user - same function already
-  // built for refresh-token-reuse theft detection, reused here for the
-  // reasoning explained in the design note above.
+  // Kill every existing session for this user - same function already built for refresh-token-reuse theft detection, reused here for the reasoning explained in the design note above.
   await revokeAllRefreshTokensForUser(pending.userId);
 
   await redis.del(key);

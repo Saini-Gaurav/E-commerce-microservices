@@ -3,10 +3,7 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 
-// Everything a DOWNSTREAM service (catalog-service, order-service, ...)
-// needs to authorize a request, with zero DB calls and zero calls back
-// to auth-service. This is the whole point of putting these fields
-// here: the token IS the answer to "who is this and what can they do."
+// Everything a DOWNSTREAM service (catalog-service, order-service, ...) needs to authorize a request, with zero DB calls and zero calls back to auth-service. This is the whole point of putting these fields here: the token IS the answer to "who is this and what can they do."
 export interface AccessTokenPayload {
   userId: string;
   name: string;
@@ -16,27 +13,14 @@ export interface AccessTokenPayload {
 }
 
 // --- RS256 key loading ---------------------------------------------
-//
-// WHY asymmetric (RS256) instead of a shared secret (HS256), now that
-// more than one service verifies these tokens:
-//
-// With HS256, the SAME string both signs and verifies a token. Every
-// service that needs to check a token would need that string — which
-// means every service that can check a token can also forge one. If
-// catalog-service were ever compromised, an attacker there could mint
-// a fake admin token valid across the ENTIRE system.
-//
-// With RS256, auth-service alone holds keys/private.pem (signs).
-// Every other service only ever holds keys/public.pem (verifies).
-// A compromised downstream service can check tokens all day but can
-// never create a valid one — it simply doesn't have the private key.
+// WHY asymmetric (RS256) instead of a shared secret (HS256), now that more than one service verifies these tokens: With HS256, the SAME string both signs and verifies a token. Every service that needs to check a token would need that string — which means every service that can check a token can also forge one. If catalog-service were ever compromised, an attacker there could mint a fake admin token valid across the ENTIRE system.
+// With RS256, auth-service alone holds keys/private.pem (signs). Every other service only ever holds keys/public.pem (verifies).A compromised downstream service can check tokens all day but can never create a valid one — it simply doesn't have the private key.
 const PRIVATE_KEY_PATH =
   process.env.JWT_PRIVATE_KEY_PATH || "./keys/private.pem";
 const PUBLIC_KEY_PATH =
   process.env.JWT_PUBLIC_KEY_PATH || "./keys/public.pem";
 
-// Fail fast on boot if keys are missing, rather than failing
-// confusingly on the first login/verify attempt.
+// Fail fast on boot if keys are missing, rather than failing confusingly on the first login/verify attempt.
 const PRIVATE_KEY = fs.readFileSync(path.resolve(PRIVATE_KEY_PATH), "utf8");
 const PUBLIC_KEY = fs.readFileSync(path.resolve(PUBLIC_KEY_PATH), "utf8");
 

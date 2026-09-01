@@ -27,9 +27,7 @@ export function requireAuth(
     req.user = payload;
     next();
   } catch (err) {
-    // Covers both "signature invalid / tampered" and "expired" —
-    // jwt.verify throws for both, we treat them the same from the
-    // client's point of view: "go refresh or log in again."
+    // Covers both "signature invalid / tampered" and "expired" — jwt.verify throws for both, we treat them the same from the client's point of view: "go refresh or log in again."
     res.status(401).json({ message: "Invalid or expired access token" });
   }
 }

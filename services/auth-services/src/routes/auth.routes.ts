@@ -27,8 +27,7 @@ router.post("/logout", generalLimiter, logoutHandler);
 router.post("/forgot-password/initiate", authAttemptLimiter, forgotPasswordInitiateHandler);
 router.post("/forgot-password/reset", authAttemptLimiter, resetPasswordHandler);
  
-// A simple protected route to sanity-check requireAuth works:
-// returns the currently logged-in user's info from their access token.
+// A simple protected route to sanity-check requireAuth works: returns the currently logged-in user's info from their access token.
 router.get("/me", generalLimiter, requireAuth, (req, res) => {
   res.status(200).json({ user: req.user });
 });
