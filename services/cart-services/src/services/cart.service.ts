@@ -113,9 +113,7 @@ export async function updateItemQuantity(
   quantity: number
 ): Promise<CartResponse> {
   if (quantity < 1) {
-    // On purpose: setting quantity to 0 is ambiguous ("did they mean
-    // remove it, or make a typo?"). Removing an item should be an
-    // explicit, unambiguous action - that's what DELETE is for.
+    // On purpose: setting quantity to 0 is ambiguous ("did they mean remove it, or make a typo?"). Removing an item should be an explicit, unambiguous action - that's what DELETE is for.
     throw new ServiceError("quantity must be at least 1 - use DELETE to remove an item", 400);
   }
 

@@ -59,8 +59,7 @@ export async function upsertCartItem(
   return result.rows[0];
 }
 
-// Sets the quantity to an EXACT number (not "add more") - used when
-// someone types "3" into a quantity box on the cart page.
+// Sets the quantity to an EXACT number (not "add more") - used when someone types "3" into a quantity box on the cart page.
 export async function setCartItemQuantity(
   userId: string,
   productId: string,
