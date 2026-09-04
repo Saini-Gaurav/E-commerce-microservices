@@ -2,9 +2,7 @@ import jwt from "jsonwebtoken";
 import fs from "fs";
 import path from "path";
 
-// Mirrors auth-service's AccessTokenPayload exactly. Still duplicated,
-// not imported from a shared package - see the npm-workspaces note from
-// earlier in this build for the long-term fix once you have 3+ services.
+// Mirrors auth-service's AccessTokenPayload exactly. Still duplicated, not imported from a shared package - see the npm-workspaces note from earlier in this build for the long-term fix once you have 3+ services.
 export interface AccessTokenPayload {
   userId: string;
   name: string;

@@ -6,8 +6,7 @@ import { generalLimiter } from "../middleware/rateLimiter.middleware";
 
 const router = Router();
 
-// Reads are public - anyone browsing the storefront needs to list
-// categories without being logged in. Only writes are gated.
+// Reads are public - anyone browsing the storefront needs to list categories without being logged in. Only writes are gated.
 router.get("/", generalLimiter, categoryController.listCategoriesHandler);
 router.get("/:id", generalLimiter, categoryController.getCategoryHandler);
 

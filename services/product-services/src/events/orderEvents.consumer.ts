@@ -52,21 +52,14 @@ export async function startOrderEventsConsumer(): Promise<void> {
         const succeeded = await decrementStock(item.productId, item.quantity);
 
         if (!succeeded) {
-          // Known, named gap from the design brief: this is exactly
-          // where a real saga would publish a compensating event
-          // (e.g. "STOCK_RESERVATION_FAILED") for order-service to
-          // hear and cancel the order. Not built yet - logged loudly
-          // instead, so it's visible rather than silently wrong.
+          // Known, named gap from the design brief: this is exactly where a real saga would publish a compensating event (e.g. "STOCK_RESERVATION_FAILED") for order-service to hear and cancel the order. Not built yet - logged loudly instead, so it's visible rather than silently wrong.
           console.error(
             `STOCK DECREMENT FAILED for order ${event.orderId}, product ${item.productId}: insufficient stock. Order was already created - manual reconciliation needed.`
           );
           continue;
         }
 
-        // Re-announce the product's new state so cart-service AND
-        // order-service's local caches both pick up the reduced stock
-        // number automatically - same publish function product-service
-        // already calls from createProduct/updateProduct, reused here.
+        // Re-announce the product's new state so cart-service AND order-service's local caches both pick up the reduced stock number automatically - same publish function product-service already calls from createProduct/updateProduct, reused here.
         const updated: ProductRow | null = await findProductById(item.productId);
         if (updated) {
           await publishProductUpserted(toProductResponse(updated));

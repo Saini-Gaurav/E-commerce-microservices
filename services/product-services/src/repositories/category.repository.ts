@@ -24,9 +24,7 @@ export async function findCategoryById(id: string): Promise<CategoryRow | null> 
   return result.rows[0] ?? null;
 }
 
-// Used by the service layer to give a friendly "category already exists"
-// 409 instead of letting the DB's unique index throw a raw constraint
-// violation error up to the client.
+// Used by the service layer to give a friendly "category already exists" 409 instead of letting the DB's unique index throw a raw constraint violation error up to the client.
 export async function findCategoryByName(name: string): Promise<CategoryRow | null> {
   const result = await query<CategoryRow>(
     "SELECT * FROM categories WHERE LOWER(name) = LOWER($1)",
@@ -53,9 +51,7 @@ export async function updateCategory(
   id: string,
   fields: Partial<Pick<CategoryRow, "name" | "icon" | "color">>
 ): Promise<CategoryRow | null> {
-  // Filter out keys whose VALUE is undefined, not just missing keys -
-  // this is the actual fix. Object.keys() alone isn't enough here; see
-  // the chat for why {name: undefined} still produces a "name" key.
+  // Filter out keys whose VALUE is undefined, not just missing keys - this is the actual fix. Object.keys() alone isn't enough here; see the chat for why {name: undefined} still produces a "name" key.
   const keys = (Object.keys(fields) as (keyof typeof fields)[]).filter(
     (key) => fields[key] !== undefined
   );

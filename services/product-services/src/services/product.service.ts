@@ -127,8 +127,7 @@ export async function getProductById(id: string): Promise<ProductResponse> {
 async function assertCategoryExists(categoryId: string): Promise<void> {
   const category = await findCategoryById(categoryId);
   if (!category) {
-    // 400, not 404: the client sent a bad reference in the request body,
-    // this isn't "the URL points at a resource that doesn't exist."
+    // 400, not 404: the client sent a bad reference in the request body, this isn't "the URL points at a resource that doesn't exist."
     throw new ServiceError(
       "categoryId does not reference an existing category",
       400,
