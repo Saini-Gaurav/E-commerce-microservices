@@ -39,10 +39,7 @@ export async function getMyOrdersHandler(req: Request, res: Response): Promise<v
 
 export async function getOrderByIdHandler(req: Request, res: Response): Promise<void> {
   try {
-    // isAdminOverride decided HERE, not left to the service to assume -
-    // the controller is where "what does this caller's token actually
-    // grant" gets read; the service just receives a plain boolean and
-    // doesn't need to know anything about permission codes at all.
+    // isAdminOverride decided HERE, not left to the service to assume - the controller is where "what does this caller's token actually grant" gets read; the service just receives a plain boolean and doesn't need to know anything about permission codes at all.
     const isAdminOverride = req.user!.permissions.includes("ORDER_READ_ANY");
     const order = await orderService.getOrderById(req.params.id, req.user!.userId, isAdminOverride);
     res.status(200).json({ order });
