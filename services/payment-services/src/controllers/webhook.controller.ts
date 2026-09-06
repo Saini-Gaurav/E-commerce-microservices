@@ -36,9 +36,6 @@ export async function razorpayWebhookHandler(req: Request, res: Response): Promi
     await paymentService.markPaidFromWebhook(razorpayOrderId, razorpayPaymentId);
   }
 
-  // Always 200, even for event types we don't care about - Razorpay
-  // interprets anything other than 2xx as "delivery failed" and will
-  // keep retrying this same webhook repeatedly, which we don't want
-  // for events that were never going to do anything on our end anyway.
+  // Always 200, even for event types we don't care about - Razorpay interprets anything other than 2xx as "delivery failed" and will keep retrying this same webhook repeatedly, which we don't want for events that were never going to do anything on our end anyway.
   res.status(200).json({ received: true });
 }
