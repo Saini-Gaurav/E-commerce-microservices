@@ -30,12 +30,7 @@ export async function sendNewsletterConfirmation(toEmail: string): Promise<void>
   });
 }
 
-/**
- * Forwards a contact form submission to YOUR OWN inbox (EMAIL_USER) -
- * not to the customer. This is the actual "notification" half of
- * contact-form handling: you finding out someone reached out, not the
- * customer receiving anything at this stage.
- */
+// Forwards a contact form submission to YOUR OWN inbox (EMAIL_USER) - not to the customer. This is the actual "notification" half of contact-form handling: you finding out someone reached out, not the customer receiving anything at this stage.
 export async function sendContactNotification(input: {
   name: string;
   email: string;

@@ -24,12 +24,8 @@ export async function createSubscriber(email: string): Promise<NewsletterSubscri
   return result.rows[0];
 }
 
-/**
- * Re-subscribes someone who previously unsubscribed, rather than
- * creating a second row for the same email - the unique index on
- * LOWER(email) would reject a duplicate insert anyway, so this is the
- * correct path for "I left, now I'm back," not an edge case to ignore.
- */
+// Re-subscribes someone who previously unsubscribed, rather than creating a second row for the same email - the unique index on LOWER(email) would reject a duplicate insert anyway, so this is the correct path for "I left, now I'm back," not an edge case to ignore.
+
 export async function reactivateSubscriber(email: string): Promise<NewsletterSubscriberRow> {
   const result = await query<NewsletterSubscriberRow>(
     `UPDATE newsletter_subscribers
