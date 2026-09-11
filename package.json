@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "dev": "concurrently \"npm run dev --prefix services/auth-services\" \"npm run dev --prefix services/product-services\" \"npm run dev --prefix services/cart-services\" \"npm run dev --prefix services/order-services\" \"npm run dev --prefix services/payment-services\""
+    "dev": "concurrently \"npm run dev --prefix services/auth-services\" \"npm run dev --prefix services/product-services\" \"npm run dev --prefix services/cart-services\" \"npm run dev --prefix services/order-services\" \"npm run dev --prefix services/payment-services\" \"npm run dev --prefix services/notification-services\""
   },
   "devDependencies": {
     "concurrently": "^10.0.5"
