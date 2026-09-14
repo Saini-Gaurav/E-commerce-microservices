@@ -8,6 +8,7 @@ import {
   logoutHandler,
   forgotPasswordInitiateHandler, 
   resetPasswordHandler,
+  createUserAsAdminHandler
 } from "../controllers/auth.controller";
 import { requireAuth } from "../middlewares/auth.middleware";
 import {
@@ -15,6 +16,8 @@ import {
   refreshLimiter,
   generalLimiter,
 } from "../middlewares/rateLimiter.middleware";
+import { requirePermission } from "../middlewares/rbac.middleware";
+
 
 const router = Router();
  
@@ -31,5 +34,13 @@ router.post("/forgot-password/reset", authAttemptLimiter, resetPasswordHandler);
 router.get("/me", generalLimiter, requireAuth, (req, res) => {
   res.status(200).json({ user: req.user });
 });
+
+router.post(
+  "/admin/create-user",
+  authAttemptLimiter,
+  requireAuth,
+  requirePermission("USER_CREATE_ADMIN"),
+  createUserAsAdminHandler
+);
 
 export default router;

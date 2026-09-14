@@ -31,6 +31,8 @@ const OTP_EXPIRY_SECONDS = Number(process.env.OTP_EXPIRY_SECONDS) || 600;
 const RESEND_COOLDOWN_MS = 60 * 1000; // 60 seconds between resend requests
 const MAX_OTP_ATTEMPTS = 5;
 
+const VALID_ROLE_CODES = ["CUSTOMER", "ADMIN"];
+
 // A small custom error class so controllers can tell "bad input" apart from "something broke on our end" and respond with the right HTTP status code (400 vs 401 vs 500). Cleaner than throwing plain Error everywhere and guessing at the message string.
 export class AuthError extends Error {
   constructor(
@@ -377,3 +379,44 @@ export async function resetPassword(input: {
   await redis.del(key);
 }
 
+
+/**
+ * Deliberately separate from register()/completeRegistration() - this
+ * skips OTP entirely, on purpose. A customer verifying their OWN email
+ * makes sense; an admin creating a colleague's account is the admin
+ * vouching for that person directly, so there's nothing to verify via
+ * a code sent to an inbox the ADMIN doesn't control. This function
+ * also lets the caller choose the role, which self-registration must
+ * never be allowed to do - see DEFAULT_ROLE_CODE's own comment on why.
+ */
+export async function createUserAsAdmin(input: {
+  name: string;
+  email: string;
+  password: string;
+  phone: string;
+  roleCode: string;
+}): Promise<Omit<UserRow, "password_hash">> {
+  if (!VALID_ROLE_CODES.includes(input.roleCode)) {
+    throw new AuthError(`roleCode must be one of: ${VALID_ROLE_CODES.join(", ")}`, 400);
+  }
+
+  const existing = await findUserByEmail(input.email);
+  if (existing) {
+    throw new AuthError("An account with this email already exists", 409);
+  }
+
+  const passwordHash = await hashPassword(input.password);
+  const roleName = input.roleCode === "ADMIN" ? "Administrator" : "Customer";
+
+  const user = await createUser({
+    name: input.name,
+    email: input.email,
+    passwordHash,
+    phone: input.phone,
+    roleCode: input.roleCode,
+    role: roleName,
+  });
+
+  const { password_hash, ...safeUser } = user;
+  return safeUser;
+}

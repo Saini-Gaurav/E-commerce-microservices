@@ -206,3 +206,19 @@ export async function resetPasswordHandler(req: Request, res: Response): Promise
     handleAuthError(err, res);
   }
 }
+
+export async function createUserAsAdminHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const { name, email, password, phone, roleCode } = req.body;
+
+    if (!name || !email || !password || !phone || !roleCode) {
+      res.status(400).json({ message: "name, email, password, phone, and roleCode are all required" });
+      return;
+    }
+
+    const user = await authService.createUserAsAdmin({ name, email, password, phone, roleCode });
+    res.status(201).json({ user });
+  } catch (err) {
+    handleAuthError(err, res);
+  }
+}
