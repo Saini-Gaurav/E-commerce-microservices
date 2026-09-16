@@ -32,3 +32,23 @@ export async function publishPaymentCompleted(
     }],
   });
 }
+
+/**
+ * Mirrors publishPaymentCompleted's shape - order-service will listen
+ * for this on the SAME topic it already listens to, just a different
+ * eventType, and react by moving the order to CANCELLED instead of
+ * PROCESSING.
+ */
+export async function publishPaymentFailed(orderId: string, paymentId: string): Promise<void> {
+  if (!isConnected) {
+    console.warn(`Kafka producer not connected - payment failure for order ${orderId} will NOT auto-cancel it`);
+    return;
+  }
+  await producer.send({
+    topic: PAYMENT_EVENTS_TOPIC,
+    messages: [{
+      key: orderId,
+      value: JSON.stringify({ eventType: "PAYMENT_FAILED", orderId, paymentId }),
+    }],
+  });
+}

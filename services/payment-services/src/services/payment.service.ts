@@ -9,7 +9,7 @@ import {
   markPaymentFailed,
   PaymentRow,
 } from "../repositories/payment.repository";
-import { publishPaymentCompleted } from "../events/paymentEvents.publisher";
+import { publishPaymentCompleted, publishPaymentFailed } from "../events/paymentEvents.publisher";
 import { ServiceError } from "../utils/errors";
 
 export interface PaymentResponse {
@@ -114,8 +114,11 @@ export async function verifyPayment(
     .update(`${input.razorpayOrderId}|${input.razorpayPaymentId}`)
     .digest("hex");
 
-  if (expectedSignature !== input.razorpaySignature) {
-    await markPaymentFailed(input.razorpayOrderId);
+    if (expectedSignature !== input.razorpaySignature) {
+    const failed = await markPaymentFailed(input.razorpayOrderId);
+    if (failed) {
+      await publishPaymentFailed(failed.order_id, failed.id);
+    }
     throw new ServiceError("Payment verification failed: invalid signature", 400);
   }
 
@@ -163,5 +166,32 @@ export async function markPaidFromWebhook(
   if (updated) {
     await publishPaymentCompleted(updated.order_id, updated.id, Number(updated.amount));
     console.log(`Webhook: payment ${updated.id} marked PAID`);
+  }
+}
+
+/**
+ * Mirrors markPaidFromWebhook exactly - called from the webhook when
+ * Razorpay reports payment.failed. Same idempotency reasoning: only
+ * acts if the payment is still genuinely unresolved (status CREATED),
+ * since a payment already marked PAID or FAILED by something else
+ * (e.g. /verify already ran) should never be silently overwritten by
+ * a late or duplicate webhook delivery.
+ */
+export async function markFailedFromWebhook(razorpayOrderId: string): Promise<void> {
+  const payment = await findPaymentByRazorpayOrderId(razorpayOrderId);
+  if (!payment) {
+    console.error(`Webhook (failed) for unknown razorpayOrderId: ${razorpayOrderId}`);
+    return;
+  }
+
+  if (payment.status !== "CREATED") {
+    console.log(`Webhook: payment ${payment.id} already ${payment.status}, skipping failed-update`);
+    return;
+  }
+
+  const updated = await markPaymentFailed(razorpayOrderId);
+  if (updated) {
+    await publishPaymentFailed(updated.order_id, updated.id);
+    console.log(`Webhook: payment ${updated.id} marked FAILED`);
   }
 }

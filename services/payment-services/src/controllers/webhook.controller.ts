@@ -34,6 +34,9 @@ export async function razorpayWebhookHandler(req: Request, res: Response): Promi
     const razorpayPaymentId = event.payload.payment.entity.id;
 
     await paymentService.markPaidFromWebhook(razorpayOrderId, razorpayPaymentId);
+  } else if (event.event === "payment.failed") {
+    const razorpayOrderId = event.payload.payment.entity.order_id;
+    await paymentService.markFailedFromWebhook(razorpayOrderId);
   }
 
   // Always 200, even for event types we don't care about - Razorpay interprets anything other than 2xx as "delivery failed" and will keep retrying this same webhook repeatedly, which we don't want for events that were never going to do anything on our end anyway.
