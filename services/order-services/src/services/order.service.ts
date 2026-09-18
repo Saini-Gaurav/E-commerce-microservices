@@ -6,6 +6,7 @@ import {
   countOrdersByUserId,
   findAllOrders,
   countAllOrders,
+  findOrderByIdempotencyKey,
   updateOrderStatus as updateOrderStatusInDb,
   OrderRow,
   OrderItemRow,
@@ -76,8 +77,22 @@ export interface CreateOrderInput {
 
 export async function createOrder(
   userId: string,
-  input: CreateOrderInput
+  input: CreateOrderInput,
+  idempotencyKey?: string
 ): Promise<OrderResponse> {
+  // Checked FIRST, before any validation or stock checking at all - if
+  // this exact request already succeeded once, we don't want to
+  // re-validate stock (which may have genuinely changed since) or
+  // publish a second ORDER_CREATED event. We just hand back the
+  // original result, as if this were the first and only time it ran.
+  if (idempotencyKey) {
+    const existing = await findOrderByIdempotencyKey(userId, idempotencyKey);
+    if (existing) {
+      const items = await findOrderItemsByOrderId(existing.id);
+      return toOrderResponse(existing, items);
+    }
+  }
+
   if (!input.items || input.items.length === 0) {
     throw new ServiceError("An order must contain at least one item", 400);
   }
@@ -131,6 +146,7 @@ export async function createOrder(
     phone: input.phone,
     items: preparedItems,
     totalPrice,
+    idempotencyKey,
   });
 
   // Announce it AFTER the DB transaction has already committed - the  order is safely saved no matter what happens to this Kafka call. Deliberately not awaited-and-blocking the response any further than this one call; if this throws, we log it but still return the order successfully (see publishOrderCreated's own internal handling) - a stock-decrement delay is not a reason to tell the customer their order failed when it didn't.

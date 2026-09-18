@@ -42,6 +42,8 @@ export interface CreateOrderInput {
     lineTotal: number;
   }[];
   totalPrice: number;
+  idempotencyKey?: string; 
+
 }
 
 /**
@@ -67,8 +69,8 @@ export async function createOrderWithItems(
     await client.query("BEGIN");
 
     const orderResult = await client.query<OrderRow>(
-      `INSERT INTO orders (user_id, shipping_address1, shipping_address2, city, zip, country, phone, total_price)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO orders (user_id, shipping_address1, shipping_address2, city, zip, country, phone, total_price, idempotency_key)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
       [
         input.userId,
@@ -79,6 +81,7 @@ export async function createOrderWithItems(
         input.country,
         input.phone,
         input.totalPrice,
+        input.idempotencyKey ?? null,
       ]
     );
     const order = orderResult.rows[0];
@@ -170,6 +173,17 @@ export async function updateOrderStatus(id: string, status: string): Promise<Ord
   const result = await query<OrderRow>(
     `UPDATE orders SET status = $1, updated_at = now() WHERE id = $2 RETURNING *`,
     [status, id]
+  );
+  return result.rows[0] ?? null;
+}
+
+export async function findOrderByIdempotencyKey(
+  userId: string,
+  idempotencyKey: string
+): Promise<OrderRow | null> {
+  const result = await query<OrderRow>(
+    "SELECT * FROM orders WHERE user_id = $1 AND idempotency_key = $2",
+    [userId, idempotencyKey]
   );
   return result.rows[0] ?? null;
 }
