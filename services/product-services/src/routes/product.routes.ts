@@ -7,6 +7,13 @@ import { generalLimiter } from "../middleware/rateLimiter.middleware";
 const router = Router();
 
 router.get("/", generalLimiter, productController.listProductsHandler);
+router.get(
+  "/upload-signature",
+  generalLimiter,
+  requireAuth,
+  requirePermission("PRODUCT_CREATE"),
+  productController.getUploadSignatureHandler
+);
 router.get("/:id", generalLimiter, productController.getProductHandler);
 
 router.post(

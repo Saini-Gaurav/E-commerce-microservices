@@ -14,8 +14,8 @@ export async function createOrderHandler(req: Request, res: Response): Promise<v
     }
 
     // Optional on purpose - a client that never sends this header
-    // simply gets no idempotency protection, rather than being
     // rejected outright. Real Stripe-style APIs work the same way.
+    // simply gets no idempotency protection, rather than being
     const idempotencyKey = req.headers["idempotency-key"] as string | undefined;
 
     const order = await orderService.createOrder(

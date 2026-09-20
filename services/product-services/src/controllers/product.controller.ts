@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import * as productService from "../services/product.service";
 import { handleServiceError } from "../utils/errors";
 import { ProductSortBy } from "../repositories/product.repository";
+import { generateUploadSignature } from "../utils/cloudinary.util";
 
 const VALID_SORTS: ProductSortBy[] = [
   "newest",
@@ -169,4 +170,9 @@ export async function deleteProductHandler(
   } catch (err) {
     handleServiceError(err, res);
   }
+}
+
+export async function getUploadSignatureHandler(_req: Request, res: Response): Promise<void> {
+  const signatureData = generateUploadSignature();
+  res.status(200).json(signatureData);
 }
