@@ -16,6 +16,7 @@ import {
   publishProductUpserted,
   publishProductDeleted,
 } from "../events/productEvents.publisher";
+import { deleteCloudinaryImage } from "../utils/cloudinary.util";
 
 // The shape actually sent to clients: price/rating as real numbers (see note in product.repository.ts on why pg gives us strings), and category_id -> categoryId to keep the API surface camelCase even though the DB columns are snake_case.
 export interface ProductResponse {
@@ -200,7 +201,18 @@ export async function updateProduct(
 }
 
 export async function deleteProduct(id: string): Promise<void> {
-  await getProductById(id); // 404 if missing
+  const product = await getProductById(id); // 404 if missing, and gives us the actual image URLs to clean up
+
+  // Delete from Cloudinary BEFORE the DB row - if this fails silently
+  // (see deleteCloudinaryImage's own reasoning) it just leaves an
+  // orphan, same as today; but doing it after the DB delete would mean
+  // a crash between the two steps loses the product's own image URL
+  // entirely, making cleanup impossible even manually.
+  await deleteCloudinaryImage(product.image);
+  for (const galleryUrl of product.images) {
+    await deleteCloudinaryImage(galleryUrl);
+  }
+
   await deleteProductInDb(id);
   await publishProductDeleted(id);
 }
