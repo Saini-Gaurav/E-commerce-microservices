@@ -67,3 +67,16 @@ export async function markPaymentFailed(razorpayOrderId: string): Promise<Paymen
   );
   return result.rows[0] ?? null;
 }
+
+export async function markPaymentRefunded(
+  orderId: string,
+  refundId: string
+): Promise<PaymentRow | null> {
+  const result = await query<PaymentRow>(
+    `UPDATE payments SET status = 'REFUNDED', refund_id = $1, refunded_at = now()
+     WHERE order_id = $2
+     RETURNING *`,
+    [refundId, orderId]
+  );
+  return result.rows[0] ?? null;
+}

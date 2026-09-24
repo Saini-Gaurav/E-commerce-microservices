@@ -45,3 +45,12 @@ export async function getPaymentForOrderHandler(req: Request, res: Response): Pr
     handleServiceError(err, res);
   }
 }
+
+export async function refundPaymentHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const payment = await paymentService.refundPayment(req.params.orderId);
+    res.status(200).json({ payment });
+  } catch (err) {
+    handleServiceError(err, res);
+  }
+}

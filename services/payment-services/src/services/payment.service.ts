@@ -8,8 +8,9 @@ import {
   markPaymentPaid,
   markPaymentFailed,
   PaymentRow,
+  markPaymentRefunded 
 } from "../repositories/payment.repository";
-import { publishPaymentCompleted, publishPaymentFailed } from "../events/paymentEvents.publisher";
+import { publishPaymentCompleted, publishPaymentFailed, publishRefundCompleted } from "../events/paymentEvents.publisher";
 import { ServiceError } from "../utils/errors";
 
 export interface PaymentResponse {
@@ -194,4 +195,36 @@ export async function markFailedFromWebhook(razorpayOrderId: string): Promise<vo
     await publishPaymentFailed(updated.order_id, updated.id);
     console.log(`Webhook: payment ${updated.id} marked FAILED`);
   }
+}
+
+export async function refundPayment(orderId: string): Promise<PaymentResponse> {
+  const payment = await findPaymentByOrderId(orderId);
+  if (!payment) {
+    throw new ServiceError("No payment found for this order", 404);
+  }
+
+  // Only a genuinely PAID payment can be refunded - refunding
+  // something that was never charged, or refunding twice, are both
+  // real mistakes worth blocking explicitly rather than trusting
+  // Razorpay's own API to be the only thing catching it.
+  if (payment.status !== "PAID") {
+    throw new ServiceError(`Cannot refund a payment with status ${payment.status}`, 400);
+  }
+
+  // Full refund - no amount specified means "refund the entire
+  // captured amount," Razorpay's own default behavior for this call.
+  const refund = await razorpay.payments.refund(payment.razorpay_payment_id!, {});
+
+  const updated = await markPaymentRefunded(orderId, refund.id);
+  if (!updated) {
+    throw new ServiceError("Failed to update payment record after refund", 500);
+  }
+
+  // Announce AFTER Razorpay confirmed the refund and our own DB write
+  // committed - same ordering principle as every other event in this
+  // system: the real state change happens first, the announcement is
+  // a side effect of it, never a precondition.
+  await publishRefundCompleted(updated.order_id, updated.id);
+
+  return toPaymentResponse(updated);
 }

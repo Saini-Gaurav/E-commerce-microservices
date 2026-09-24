@@ -52,3 +52,17 @@ export async function publishPaymentFailed(orderId: string, paymentId: string): 
     }],
   });
 }
+
+export async function publishRefundCompleted(orderId: string, paymentId: string): Promise<void> {
+  if (!isConnected) {
+    console.warn(`Kafka producer not connected - refund for order ${orderId} will NOT auto-cascade (order status, stock restore)`);
+    return;
+  }
+  await producer.send({
+    topic: PAYMENT_EVENTS_TOPIC,
+    messages: [{
+      key: orderId,
+      value: JSON.stringify({ eventType: "REFUND_COMPLETED", orderId, paymentId }),
+    }],
+  });
+}
