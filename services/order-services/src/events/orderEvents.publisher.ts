@@ -14,6 +14,11 @@ export interface OrderCreatedEventItem {
   quantity: number;
 }
 
+export interface RefundedOrderItem {
+  productId: string;
+  quantity: number;
+}
+
 /**
  * Announces "this order was just placed" - product-service listens for
  * this to decrement its own stock. Fired AFTER the order is already
@@ -37,6 +42,29 @@ export async function publishOrderCreated(
     messages: [{
       key: orderId,
       value: JSON.stringify({ eventType: "ORDER_CREATED", orderId, userId, items, totalPrice }), // <-- add totalPrice here
+    }],
+  });
+}
+
+/**
+ * The mirror-image of publishOrderCreated. Where ORDER_CREATED tells
+ * product-service "these items were just committed, decrement stock,"
+ * ORDER_REFUNDED tells it "these items are coming back, restore
+ * stock" - same shape, same items array, opposite direction.
+ */
+export async function publishOrderRefunded(
+  orderId: string,
+  items: RefundedOrderItem[]
+): Promise<void> {
+  if (!isConnected) {
+    console.warn(`Kafka producer not connected - refund for order ${orderId} will NOT restore stock`);
+    return;
+  }
+  await producer.send({
+    topic: ORDER_EVENTS_TOPIC,
+    messages: [{
+      key: orderId,
+      value: JSON.stringify({ eventType: "ORDER_REFUNDED", orderId, items }),
     }],
   });
 }

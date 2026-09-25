@@ -11,10 +11,10 @@ const kafka = new Kafka({
 
 const consumer = kafka.consumer({ groupId: "product-service-order-events-group" });
 
-interface OrderCreatedEvent {
-  eventType: "ORDER_CREATED";
+interface OrderEvent {
+  eventType: "ORDER_CREATED" | "ORDER_REFUNDED";
   orderId: string;
-  userId: string;
+  userId?: string;
   items: { productId: string; quantity: number }[];
 }
 
@@ -38,28 +38,50 @@ async function decrementStock(productId: string, quantity: number): Promise<bool
   return (result.rowCount ?? 0) > 0;
 }
 
+/**
+ * No WHERE guard against going negative here, unlike decrementStock -
+ * restoring stock can only ever increase the count, so there's no
+ * equivalent "not enough stock" failure mode to guard against. Always
+ * succeeds if the product still exists.
+ */
+async function incrementStock(productId: string, quantity: number): Promise<boolean> {
+  const result = await query(
+    `UPDATE products SET count_in_stock = count_in_stock + $1, updated_at = now() WHERE id = $2`,
+    [quantity, productId]
+  );
+  return (result.rowCount ?? 0) > 0;
+}
+
 export async function startOrderEventsConsumer(): Promise<void> {
   await consumer.connect();
   await consumer.subscribe({ topic: "order-events", fromBeginning: true });
 
-  await consumer.run({
+    await consumer.run({
     eachMessage: async ({ message }) => {
       if (!message.value) return;
-      const event = JSON.parse(message.value.toString()) as OrderCreatedEvent;
-      if (event.eventType !== "ORDER_CREATED") return;
+      const event = JSON.parse(message.value.toString()) as OrderEvent;
+
+      if (event.eventType !== "ORDER_CREATED" && event.eventType !== "ORDER_REFUNDED") {
+        return;
+      }
 
       for (const item of event.items) {
-        const succeeded = await decrementStock(item.productId, item.quantity);
+        const succeeded =
+          event.eventType === "ORDER_CREATED"
+            ? await decrementStock(item.productId, item.quantity)
+            : await incrementStock(item.productId, item.quantity);
 
         if (!succeeded) {
-          // Known, named gap from the design brief: this is exactly where a real saga would publish a compensating event (e.g. "STOCK_RESERVATION_FAILED") for order-service to hear and cancel the order. Not built yet - logged loudly instead, so it's visible rather than silently wrong.
           console.error(
-            `STOCK DECREMENT FAILED for order ${event.orderId}, product ${item.productId}: insufficient stock. Order was already created - manual reconciliation needed.`
+            `STOCK ${event.eventType === "ORDER_CREATED" ? "DECREMENT" : "RESTORE"} FAILED for order ${event.orderId}, product ${item.productId}. Manual reconciliation needed.`
           );
           continue;
         }
 
-        // Re-announce the product's new state so cart-service AND order-service's local caches both pick up the reduced stock number automatically - same publish function product-service already calls from createProduct/updateProduct, reused here.
+        // Re-announce the product's new stock count either way - this
+        // is what keeps cart-service and order-service's OWN local
+        // caches in sync after a refund restores stock, same exact
+        // mechanism as after the original decrement.
         const updated: ProductRow | null = await findProductById(item.productId);
         if (updated) {
           await publishProductUpserted(toProductResponse(updated));
