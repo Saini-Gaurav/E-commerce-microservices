@@ -12,7 +12,7 @@ const kafka = new Kafka({
 const consumer = kafka.consumer({ groupId: "product-service-order-events-group" });
 
 interface OrderEvent {
-  eventType: "ORDER_CREATED" | "ORDER_REFUNDED";
+  eventType: "ORDER_CREATED" | "ORDER_REFUNDED" | "ORDER_CANCELLED";
   orderId: string;
   userId?: string;
   items: { productId: string; quantity: number }[];
@@ -61,10 +61,16 @@ export async function startOrderEventsConsumer(): Promise<void> {
       if (!message.value) return;
       const event = JSON.parse(message.value.toString()) as OrderEvent;
 
-      if (event.eventType !== "ORDER_CREATED" && event.eventType !== "ORDER_REFUNDED") {
+            if (
+        event.eventType !== "ORDER_CREATED" &&
+        event.eventType !== "ORDER_REFUNDED" &&
+        event.eventType !== "ORDER_CANCELLED"
+      ) {
         return;
       }
 
+      // Both REFUNDED and CANCELLED restore stock the same way -
+      // ORDER_CREATED is the only one that ever takes stock away.
       for (const item of event.items) {
         const succeeded =
           event.eventType === "ORDER_CREATED"

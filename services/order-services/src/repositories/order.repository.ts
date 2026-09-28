@@ -187,3 +187,19 @@ export async function findOrderByIdempotencyKey(
   );
   return result.rows[0] ?? null;
 }
+
+/**
+ * "Abandoned" = still PENDING, created longer ago than the cutoff. If
+ * payment had succeeded OR failed, this order wouldn't be PENDING
+ * anymore - the payment-events consumer already moved it to
+ * PROCESSING or CANCELLED. The only way an order stays PENDING this
+ * long is if checkout was started and then genuinely abandoned before
+ * payment was ever attempted.
+ */
+export async function findAbandonedPendingOrders(olderThan: Date): Promise<OrderRow[]> {
+  const result = await query<OrderRow>(
+    "SELECT * FROM orders WHERE status = 'PENDING' AND created_at < $1",
+    [olderThan]
+  );
+  return result.rows;
+}

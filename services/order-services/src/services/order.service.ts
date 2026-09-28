@@ -10,10 +10,13 @@ import {
   updateOrderStatus as updateOrderStatusInDb,
   OrderRow,
   OrderItemRow,
+  findAbandonedPendingOrders
 } from "../repositories/order.repository";
 import { findProductInCache } from "../repositories/productCache.repository";
-import { publishOrderCreated } from "../events/orderEvents.publisher";
+import { publishOrderCreated, publishOrderCancelled } from "../events/orderEvents.publisher";
 import { ServiceError } from "../utils/errors";
+
+const ABANDONED_ORDER_TIMEOUT_MS = Number(process.env.ABANDONED_ORDER_TIMEOUT_MS) || 30 * 60 * 1000;
 
 export interface OrderItemResponse {
   productId: string;
@@ -243,4 +246,31 @@ export async function updateStatus(orderId: string, status: string): Promise<Ord
 
   const items = await findOrderItemsByOrderId(orderId);
   return toOrderResponse(updated, items);
+}
+
+/**
+ * Called on a timer (see jobs/abandonedOrderSweep.ts), not from any
+ * HTTP route - this is a background maintenance task, not something
+ * a user or admin ever directly triggers.
+ */
+export async function sweepAbandonedOrders(): Promise<void> {
+  const cutoff = new Date(Date.now() - ABANDONED_ORDER_TIMEOUT_MS);
+  const abandoned = await findAbandonedPendingOrders(cutoff);
+
+  if (abandoned.length === 0) return;
+
+  console.log(`Sweeping ${abandoned.length} abandoned order(s)`);
+
+  for (const order of abandoned) {
+    const updated = await updateOrderStatus(order.id, "CANCELLED");
+    if (!updated) continue; // shouldn't happen, but don't let one bad row stop the rest
+
+    const items = await findOrderItemsByOrderId(order.id);
+    await publishOrderCancelled(
+      order.id,
+      items.map((item) => ({ productId: item.product_id, quantity: item.quantity }))
+    );
+
+    console.log(`Order ${order.id} cancelled (abandoned, no payment attempted) - stock restore announced`);
+  }
 }

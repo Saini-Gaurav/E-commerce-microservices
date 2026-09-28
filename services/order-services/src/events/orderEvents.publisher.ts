@@ -68,3 +68,28 @@ export async function publishOrderRefunded(
     }],
   });
 }
+
+/**
+ * Distinct from publishOrderRefunded even though both trigger the
+ * SAME stock-restoration action in product-service - the event NAME
+ * stays honest about what actually happened. A refund means money was
+ * taken and given back; a cancellation here means no money was ever
+ * taken at all. Same downstream effect, different real-world meaning,
+ * worth keeping separate for anyone reading logs or events later.
+ */
+export async function publishOrderCancelled(
+  orderId: string,
+  items: RefundedOrderItem[]
+): Promise<void> {
+  if (!isConnected) {
+    console.warn(`Kafka producer not connected - cancelled order ${orderId} will NOT restore stock`);
+    return;
+  }
+  await producer.send({
+    topic: ORDER_EVENTS_TOPIC,
+    messages: [{
+      key: orderId,
+      value: JSON.stringify({ eventType: "ORDER_CANCELLED", orderId, items }),
+    }],
+  });
+}
