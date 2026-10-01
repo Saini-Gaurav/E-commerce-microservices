@@ -79,7 +79,7 @@ app.use(
         return PAYMENT_SERVICE_URL;
       }
 
-      if (url.startsWith("/newsletter") || url.startsWith("/contact")) {
+      if (url.startsWith("/newsletter") || url.startsWith("/contact") || url.startsWith("/notifications")) {
         return NOTIFICATION_SERVICE_URL;
       }
 
