@@ -116,12 +116,12 @@ export async function verifyPayment(
     .digest("hex");
 
     if (expectedSignature !== input.razorpaySignature) {
-    const failed = await markPaymentFailed(input.razorpayOrderId);
-    if (failed) {
-      await publishPaymentFailed(failed.order_id, failed.id);
-    }
-    throw new ServiceError("Payment verification failed: invalid signature", 400);
+  const failed = await markPaymentFailed(input.razorpayOrderId);
+  if (failed) {
+    await publishPaymentFailed(failed.order_id, failed.id, failed.user_id);
   }
+  throw new ServiceError("Payment verification failed: invalid signature", 400);
+}
 
   const updated = await markPaymentPaid(input.razorpayOrderId, input.razorpayPaymentId);
   if (!updated) {
@@ -129,7 +129,7 @@ export async function verifyPayment(
   }
 
   // Announce success AFTER the DB write committed, same ordering principle as order-service's publishOrderCreated - the payment record being marked PAID is the source of truth; the Kafka announcement is a side effect of that, not a precondition for it.
-  await publishPaymentCompleted(updated.order_id, updated.id, Number(updated.amount));
+  await publishPaymentCompleted(updated.order_id, updated.id, updated.user_id, Number(updated.amount));
 
   return toPaymentResponse(updated);
 }
@@ -165,7 +165,7 @@ export async function markPaidFromWebhook(
 
   const updated = await markPaymentPaid(razorpayOrderId, razorpayPaymentId);
   if (updated) {
-    await publishPaymentCompleted(updated.order_id, updated.id, Number(updated.amount));
+    await publishPaymentCompleted(updated.order_id, updated.id, updated.user_id, Number(updated.amount));
     console.log(`Webhook: payment ${updated.id} marked PAID`);
   }
 }
@@ -192,7 +192,7 @@ export async function markFailedFromWebhook(razorpayOrderId: string): Promise<vo
 
   const updated = await markPaymentFailed(razorpayOrderId);
   if (updated) {
-    await publishPaymentFailed(updated.order_id, updated.id);
+    await publishPaymentFailed(updated.order_id, updated.id, updated.user_id);
     console.log(`Webhook: payment ${updated.id} marked FAILED`);
   }
 }
@@ -224,7 +224,7 @@ export async function refundPayment(orderId: string): Promise<PaymentResponse> {
   // committed - same ordering principle as every other event in this
   // system: the real state change happens first, the announcement is
   // a side effect of it, never a precondition.
-  await publishRefundCompleted(updated.order_id, updated.id);
+  await publishRefundCompleted(updated.order_id, updated.id, updated.user_id);
 
   return toPaymentResponse(updated);
 }
