@@ -93,3 +93,21 @@ export async function publishOrderCancelled(
     }],
   });
 }
+
+export async function publishOrderStatusUpdated(
+  orderId: string,
+  userId: string,
+  status: string
+): Promise<void> {
+  if (!isConnected) {
+    console.warn(`Kafka producer not connected - status change for order ${orderId} will NOT notify the customer`);
+    return;
+  }
+  await producer.send({
+    topic: ORDER_EVENTS_TOPIC,
+    messages: [{
+      key: orderId,
+      value: JSON.stringify({ eventType: "ORDER_STATUS_UPDATED", orderId, userId, status }),
+    }],
+  });
+}

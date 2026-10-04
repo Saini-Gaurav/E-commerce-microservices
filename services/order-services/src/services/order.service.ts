@@ -13,7 +13,7 @@ import {
   findAbandonedPendingOrders
 } from "../repositories/order.repository";
 import { findProductInCache } from "../repositories/productCache.repository";
-import { publishOrderCreated, publishOrderCancelled } from "../events/orderEvents.publisher";
+import { publishOrderCreated, publishOrderCancelled, publishOrderStatusUpdated } from "../events/orderEvents.publisher";
 import { ServiceError } from "../utils/errors";
 
 const ABANDONED_ORDER_TIMEOUT_MS = Number(process.env.ABANDONED_ORDER_TIMEOUT_MS) || 30 * 60 * 1000;
@@ -244,6 +244,13 @@ export async function updateStatus(orderId: string, status: string): Promise<Ord
     throw new ServiceError("Order not found", 404);
   }
 
+  // This is the ONLY gap that was left open before this feature - every
+  // other status transition in this service was already announced
+  // (PROCESSING/CANCELLED/REFUNDED via Kafka consumers reacting to
+  // payment events), but an admin manually setting SHIPPED/DELIVERED
+  // from /admin/orders never told anyone. Now it does.
+  await publishOrderStatusUpdated(orderId, updated.user_id, status);
+
   const items = await findOrderItemsByOrderId(orderId);
   return toOrderResponse(updated, items);
 }
@@ -262,7 +269,7 @@ export async function sweepAbandonedOrders(): Promise<void> {
   console.log(`Sweeping ${abandoned.length} abandoned order(s)`);
 
   for (const order of abandoned) {
-    const updated = await updateOrderStatus(order.id, "CANCELLED");
+    const updated = await updateOrderStatusInDb(order.id, "CANCELLED");
     if (!updated) continue; // shouldn't happen, but don't let one bad row stop the rest
 
     const items = await findOrderItemsByOrderId(order.id);
