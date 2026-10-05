@@ -1,11 +1,15 @@
 import "dotenv/config";
 import app from "./app";
 import { pool } from "./config/db";
+import { startPaymentEventsConsumer } from "./events/paymentEvents.consumer";
+import { startOrderEventsConsumer } from "./events/orderEvents.consumer";
 
 const PORT = process.env.PORT || 4006;
 
 async function start(): Promise<void> {
   await pool.query("SELECT 1");
+  await startPaymentEventsConsumer();
+  await startOrderEventsConsumer();
   app.listen(PORT, () => {
     console.log(`notification-service listening on port ${PORT}`);
   });
