@@ -28,7 +28,7 @@ export async function sendPushNotification(
   data?: Record<string, string>
 ): Promise<{ success: boolean; invalidToken: boolean }> {
   try {
-    await getMessaging().send({
+    const messageId = await getMessaging().send({
       token,
       notification: {
         title,
@@ -36,6 +36,11 @@ export async function sendPushNotification(
       },
       data,
     });
+
+    // A messageId means FCM accepted the message - not that the browser
+    // displayed it. Display is decided on the device (see the frontend's
+    // onMessage listener and firebase-messaging-sw.js).
+    console.log("FCM message sent:", messageId);
 
     return {
       success: true,
