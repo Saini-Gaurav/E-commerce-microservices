@@ -71,7 +71,7 @@ app.use(
         return CART_SERVICE_URL;
       }
 
-      if (url.startsWith("/orders")) {
+      if (url.startsWith("/orders") || url.startsWith("/addresses")) {
         return ORDER_SERVICE_URL;
       }
 
@@ -79,7 +79,11 @@ app.use(
         return PAYMENT_SERVICE_URL;
       }
 
-      if (url.startsWith("/newsletter") || url.startsWith("/contact") || url.startsWith("/notifications")) {
+      if (
+        url.startsWith("/newsletter") ||
+        url.startsWith("/contact") ||
+        url.startsWith("/notifications")
+      ) {
         return NOTIFICATION_SERVICE_URL;
       }
 
@@ -93,11 +97,17 @@ app.use(
 
     on: {
       proxyReq: (proxyReq, req) => {
-        console.log(`[${req.headers["x-request-id"]}] Gateway received:`, req.url ?? "");
+        console.log(
+          `[${req.headers["x-request-id"]}] Gateway received:`,
+          req.url ?? "",
+        );
       },
       // NEW - the actual biggest gap before this change. Without this, a downed backend service (e.g. product-service crashed) meant requests through the gateway would hang or surface a raw, ugly Node-level error instead of a clean response the frontend can actually handle.
       error: (err, req, res) => {
-        console.error(`[${req.headers?.["x-request-id"]}] Proxy error:`, err.message);
+        console.error(
+          `[${req.headers?.["x-request-id"]}] Proxy error:`,
+          err.message,
+        );
         if ("writeHead" in res && !res.headersSent) {
           res.writeHead(502, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ message: "Upstream service unavailable" }));
