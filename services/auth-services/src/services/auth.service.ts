@@ -3,7 +3,8 @@ import {
   findUserByEmail,
   findUserById,
   UserRow,
-  updateUserPassword
+  updateUserPassword,
+  updateUserProfile,
 } from "../repositories/user.repository";
 import {
   storeRefreshToken,
@@ -37,7 +38,7 @@ const VALID_ROLE_CODES = ["CUSTOMER", "ADMIN"];
 export class AuthError extends Error {
   constructor(
     message: string,
-    public statusCode: number
+    public statusCode: number,
   ) {
     super(message);
     this.name = "AuthError";
@@ -58,7 +59,7 @@ export interface AuthResult {
  * no extra DB query needed, since that cache is already loaded.
  */
 function buildAuthUser(
-  user: UserRow
+  user: UserRow,
 ): Omit<UserRow, "password_hash"> & { permissions: string[] } {
   const { password_hash, ...safeUser } = user;
   return {
@@ -73,7 +74,7 @@ function buildAuthUser(
  * they all end with "give this user a new token pair."
  */
 async function issueTokenPair(
-  user: UserRow
+  user: UserRow,
 ): Promise<{ accessToken: string; refreshToken: string }> {
   const accessToken = signAccessToken({
     userId: user.id,
@@ -101,6 +102,25 @@ function pendingPasswordResetKey(email: string): string {
   return `pending_password_reset:${email.toLowerCase()}`;
 }
 
+export interface Profile {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
+  createdAt: Date;
+}
+
+function toProfile(user: UserRow): Profile {
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    phone: user.phone,
+    role: user.role,
+    createdAt: user.created_at,
+  };
+}
 
 // export async function register(input: {
 //   name: string;
@@ -167,8 +187,13 @@ export async function initiateRegistration(input: {
     const parsed: PendingRegistration = JSON.parse(existingPending);
     const msSinceLastSend = Date.now() - parsed.lastSentAt;
     if (msSinceLastSend < RESEND_COOLDOWN_MS) {
-      const waitSeconds = Math.ceil((RESEND_COOLDOWN_MS - msSinceLastSend) / 1000);
-      throw new AuthError(`Please wait ${waitSeconds}s before requesting another code`, 429);
+      const waitSeconds = Math.ceil(
+        (RESEND_COOLDOWN_MS - msSinceLastSend) / 1000,
+      );
+      throw new AuthError(
+        `Please wait ${waitSeconds}s before requesting another code`,
+        429,
+      );
     }
   }
 
@@ -203,14 +228,20 @@ export async function completeRegistration(input: {
   const raw = await redis.get(key);
 
   if (!raw) {
-    throw new AuthError("No pending registration found - please register again", 400);
+    throw new AuthError(
+      "No pending registration found - please register again",
+      400,
+    );
   }
 
   const pending: PendingRegistration = JSON.parse(raw);
 
   if (pending.attempts >= MAX_OTP_ATTEMPTS) {
     await redis.del(key);
-    throw new AuthError("Too many incorrect attempts - please register again", 400);
+    throw new AuthError(
+      "Too many incorrect attempts - please register again",
+      400,
+    );
   }
 
   if (hashOtp(input.otp) !== pending.otpHash) {
@@ -236,7 +267,6 @@ export async function completeRegistration(input: {
   return { user: buildAuthUser(user), ...tokens };
 }
 
-
 export async function login(input: {
   email: string;
   password: string;
@@ -249,7 +279,7 @@ export async function login(input: {
 
   const passwordMatches = await comparePassword(
     input.password,
-    user.password_hash
+    user.password_hash,
   );
   if (!passwordMatches) {
     throw new AuthError("Invalid email or password", 401);
@@ -287,7 +317,7 @@ export async function refresh(rawRefreshToken: string): Promise<AuthResult> {
     await revokeAllRefreshTokensForUser(existingToken.user_id);
     throw new AuthError(
       "Refresh token reuse detected — all sessions revoked, please log in again",
-      401
+      401,
     );
   }
 
@@ -328,8 +358,13 @@ export async function initiatePasswordReset(email: string): Promise<void> {
     const parsed: PendingPasswordReset = JSON.parse(existingPending);
     const msSinceLastSend = Date.now() - parsed.lastSentAt;
     if (msSinceLastSend < RESEND_COOLDOWN_MS) {
-      const waitSeconds = Math.ceil((RESEND_COOLDOWN_MS - msSinceLastSend) / 1000);
-      throw new AuthError(`Please wait ${waitSeconds}s before requesting another code`, 429);
+      const waitSeconds = Math.ceil(
+        (RESEND_COOLDOWN_MS - msSinceLastSend) / 1000,
+      );
+      throw new AuthError(
+        `Please wait ${waitSeconds}s before requesting another code`,
+        429,
+      );
     }
   }
 
@@ -354,14 +389,20 @@ export async function resetPassword(input: {
   const raw = await redis.get(key);
 
   if (!raw) {
-    throw new AuthError("No password reset in progress for this email - please start again", 400);
+    throw new AuthError(
+      "No password reset in progress for this email - please start again",
+      400,
+    );
   }
 
   const pending: PendingPasswordReset = JSON.parse(raw);
 
   if (pending.attempts >= MAX_OTP_ATTEMPTS) {
     await redis.del(key);
-    throw new AuthError("Too many incorrect attempts - please start again", 400);
+    throw new AuthError(
+      "Too many incorrect attempts - please start again",
+      400,
+    );
   }
 
   if (hashOtp(input.otp) !== pending.otpHash) {
@@ -378,7 +419,6 @@ export async function resetPassword(input: {
 
   await redis.del(key);
 }
-
 
 /**
  * Deliberately separate from register()/completeRegistration() - this
@@ -397,7 +437,10 @@ export async function createUserAsAdmin(input: {
   roleCode: string;
 }): Promise<Omit<UserRow, "password_hash">> {
   if (!VALID_ROLE_CODES.includes(input.roleCode)) {
-    throw new AuthError(`roleCode must be one of: ${VALID_ROLE_CODES.join(", ")}`, 400);
+    throw new AuthError(
+      `roleCode must be one of: ${VALID_ROLE_CODES.join(", ")}`,
+      400,
+    );
   }
 
   const existing = await findUserByEmail(input.email);
@@ -419,4 +462,30 @@ export async function createUserAsAdmin(input: {
 
   const { password_hash, ...safeUser } = user;
   return safeUser;
+}
+
+export async function getProfile(userId: string): Promise<Profile> {
+  const user = await findUserById(userId);
+  if (!user) throw new AuthError("User not found", 404);
+  return toProfile(user);
+}
+
+export async function updateProfile(
+  userId: string,
+  input: { name: string; phone: string },
+): Promise<Profile> {
+  const name = input.name?.trim();
+  const phone = input.phone?.trim();
+
+  if (!name || name.length < 2) {
+    throw new AuthError("Name must be at least 2 characters", 400);
+  }
+  // same rule registration uses
+  if (!/^\d{10}$/.test(phone ?? "")) {
+    throw new AuthError("Phone must be a 10-digit number", 400);
+  }
+
+  const updated = await updateUserProfile(userId, name, phone);
+  if (!updated) throw new AuthError("User not found", 404);
+  return toProfile(updated);
 }

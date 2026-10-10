@@ -8,7 +8,9 @@ import {
   logoutHandler,
   forgotPasswordInitiateHandler, 
   resetPasswordHandler,
-  createUserAsAdminHandler
+  createUserAsAdminHandler,
+  getProfileHandler,
+  updateProfileHandler
 } from "../controllers/auth.controller";
 import { requireAuth } from "../middlewares/auth.middleware";
 import {
@@ -42,5 +44,8 @@ router.post(
   requirePermission("USER_CREATE_ADMIN"),
   createUserAsAdminHandler
 );
+
+router.get("/profile", generalLimiter, requireAuth, getProfileHandler);
+router.put("/profile", generalLimiter, requireAuth, updateProfileHandler);
 
 export default router;

@@ -70,3 +70,15 @@ export async function updateUserPassword(userId: string, passwordHash: string): 
     userId,
   ]);
 }
+
+export async function updateUserProfile(
+  userId: string,
+  name: string,
+  phone: string
+): Promise<UserRow | null> {
+  const result = await query<UserRow>(
+    "UPDATE users SET name = $1, phone = $2, updated_at = now() WHERE id = $3 RETURNING *",
+    [name, phone, userId]
+  );
+  return result.rows[0] ?? null;
+}

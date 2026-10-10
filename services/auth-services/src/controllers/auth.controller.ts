@@ -222,3 +222,26 @@ export async function createUserAsAdminHandler(req: Request, res: Response): Pro
     handleAuthError(err, res);
   }
 }
+
+export async function getProfileHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const profile = await authService.getProfile(req.user!.userId);
+    res.status(200).json({ profile });
+  } catch (err) {
+    handleAuthError(err, res);
+  }
+}
+
+export async function updateProfileHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const { name, phone } = req.body;
+    if (name === undefined || phone === undefined) {
+      res.status(400).json({ message: "name and phone are required" });
+      return;
+    }
+    const profile = await authService.updateProfile(req.user!.userId, { name, phone });
+    res.status(200).json({ profile });
+  } catch (err) {
+    handleAuthError(err, res);
+  }
+}
