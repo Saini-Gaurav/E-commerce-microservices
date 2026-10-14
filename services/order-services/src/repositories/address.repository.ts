@@ -138,3 +138,29 @@ export async function deleteAddress(id: string, userId: string): Promise<boolean
     client.release();
   }
 }
+
+export async function updateAddress(
+  id: string,
+  userId: string,
+  input: CreateAddressInput
+): Promise<AddressRow | null> {
+  const result = await query<AddressRow>(
+    `UPDATE addresses SET
+       label = $1, shipping_address1 = $2, shipping_address2 = $3,
+       city = $4, zip = $5, country = $6, phone = $7, updated_at = now()
+     WHERE id = $8 AND user_id = $9
+     RETURNING *`,
+    [
+      input.label,
+      input.shippingAddress1,
+      input.shippingAddress2,
+      input.city,
+      input.zip,
+      input.country,
+      input.phone,
+      id,
+      userId,
+    ]
+  );
+  return result.rows[0] ?? null;
+}

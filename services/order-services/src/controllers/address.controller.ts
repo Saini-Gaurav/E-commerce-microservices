@@ -37,3 +37,12 @@ export async function deleteAddressHandler(req: Request, res: Response): Promise
     handleServiceError(err, res);
   }
 }
+
+export async function updateAddressHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const address = await addressService.updateAddress(req.user!.userId, req.params.id, req.body);
+    res.status(200).json({ address });
+  } catch (err) {
+    handleServiceError(err, res);
+  }
+}
