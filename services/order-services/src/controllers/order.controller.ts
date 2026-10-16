@@ -85,3 +85,12 @@ export async function updateOrderStatusHandler(req: Request, res: Response): Pro
     handleServiceError(err, res);
   }
 }
+
+export async function getOrderStatsHandler(_req: Request, res: Response): Promise<void> {
+  try {
+    const stats = await orderService.getOrderStats();
+    res.status(200).json({ stats });
+  } catch (err) {
+    handleServiceError(err, res);
+  }
+}

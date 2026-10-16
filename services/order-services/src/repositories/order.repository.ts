@@ -203,3 +203,34 @@ export async function findAbandonedPendingOrders(olderThan: Date): Promise<Order
   );
   return result.rows;
 }
+
+export async function getOrderStatusBreakdown(): Promise<
+  { status: string; count: number; total: number }[]
+> {
+  const result = await query<{ status: string; count: string; total: string }>(
+    `SELECT status, COUNT(*) AS count, COALESCE(SUM(total_price), 0) AS total
+     FROM orders GROUP BY status`
+  );
+  return result.rows.map((r) => ({
+    status: r.status,
+    count: Number(r.count),
+    total: Number(r.total),
+  }));
+}
+
+export async function getOrderTotalsSince(
+  days: number,
+  paidStatuses: string[]
+): Promise<{ orders: number; revenue: number }> {
+  const result = await query<{ orders: string; revenue: string }>(
+    `SELECT COUNT(*) AS orders,
+            COALESCE(SUM(total_price) FILTER (WHERE status = ANY($2::text[])), 0) AS revenue
+     FROM orders
+     WHERE created_at >= now() - make_interval(days => $1::int)`,
+    [days, paidStatuses]
+  );
+  return {
+    orders: Number(result.rows[0].orders),
+    revenue: Number(result.rows[0].revenue),
+  };
+}

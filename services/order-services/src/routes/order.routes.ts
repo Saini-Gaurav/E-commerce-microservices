@@ -29,4 +29,12 @@ router.put(
   orderController.updateOrderStatusHandler
 );
 
+router.get(
+  "/stats",
+  generalLimiter,
+  requireAuth,
+  requirePermission("ORDER_READ_ANY"),
+  orderController.getOrderStatsHandler
+);
+
 export default router;

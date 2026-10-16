@@ -10,13 +10,27 @@ import {
   updateOrderStatus as updateOrderStatusInDb,
   OrderRow,
   OrderItemRow,
-  findAbandonedPendingOrders
+  findAbandonedPendingOrders,
+  getOrderStatusBreakdown,
+  getOrderTotalsSince
 } from "../repositories/order.repository";
 import { findProductInCache } from "../repositories/productCache.repository";
 import { publishOrderCreated, publishOrderCancelled, publishOrderStatusUpdated } from "../events/orderEvents.publisher";
 import { ServiceError } from "../utils/errors";
 
 const ABANDONED_ORDER_TIMEOUT_MS = Number(process.env.ABANDONED_ORDER_TIMEOUT_MS) || 30 * 60 * 1000;
+
+// Only these count as revenue. PENDING never paid, CANCELLED/REFUNDED gave the money back.
+const PAID_STATUSES = ["PROCESSING", "SHIPPED", "DELIVERED"];
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+export interface OrderStatsResponse {
+  totalOrders: number;
+  revenue: number;
+  byStatus: Record<string, number>;
+  last30Days: { orders: number; revenue: number };
+}
 
 export interface OrderItemResponse {
   productId: string;
@@ -280,4 +294,27 @@ export async function sweepAbandonedOrders(): Promise<void> {
 
     console.log(`Order ${order.id} cancelled (abandoned, no payment attempted) - stock restore announced`);
   }
+}
+
+export async function getOrderStats(): Promise<OrderStatsResponse> {
+  const [breakdown, recent] = await Promise.all([
+    getOrderStatusBreakdown(),
+    getOrderTotalsSince(30, PAID_STATUSES),
+  ]);
+
+  const byStatus: Record<string, number> = {};
+  let totalOrders = 0;
+  let revenue = 0;
+  for (const row of breakdown) {
+    byStatus[row.status] = row.count;
+    totalOrders += row.count;
+    if (PAID_STATUSES.includes(row.status)) revenue += row.total;
+  }
+
+  return {
+    totalOrders,
+    revenue: round2(revenue),
+    byStatus,
+    last30Days: { orders: recent.orders, revenue: round2(recent.revenue) },
+  };
 }
