@@ -5,6 +5,7 @@ import {
   UserRow,
   updateUserPassword,
   updateUserProfile,
+  getUserCounts
 } from "../repositories/user.repository";
 import {
   storeRefreshToken,
@@ -488,4 +489,8 @@ export async function updateProfile(
   const updated = await updateUserProfile(userId, name, phone);
   if (!updated) throw new AuthError("User not found", 404);
   return toProfile(updated);
+}
+
+export async function getUserStats() {
+  return getUserCounts();
 }

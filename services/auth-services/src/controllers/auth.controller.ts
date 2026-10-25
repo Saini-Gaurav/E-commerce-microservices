@@ -245,3 +245,12 @@ export async function updateProfileHandler(req: Request, res: Response): Promise
     handleAuthError(err, res);
   }
 }
+
+export async function getUserStatsHandler(_req: Request, res: Response): Promise<void> {
+  try {
+    const stats = await authService.getUserStats();
+    res.status(200).json({ stats });
+  } catch (err) {
+    handleAuthError(err, res);
+  }
+}

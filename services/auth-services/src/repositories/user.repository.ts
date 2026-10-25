@@ -82,3 +82,22 @@ export async function updateUserProfile(
   );
   return result.rows[0] ?? null;
 }
+
+export async function getUserCounts(): Promise<{
+  total: number;
+  admins: number;
+  newLast30Days: number;
+}> {
+  const result = await query<{ total: string; admins: string; new_users: string }>(
+    `SELECT COUNT(*) AS total,
+            COUNT(*) FILTER (WHERE role_code = 'ADMIN') AS admins,
+            COUNT(*) FILTER (WHERE created_at >= now() - interval '30 days') AS new_users
+     FROM users`
+  );
+  const row = result.rows[0];
+  return {
+    total: Number(row.total),
+    admins: Number(row.admins),
+    newLast30Days: Number(row.new_users),
+  };
+}
