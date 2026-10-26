@@ -43,26 +43,6 @@ function clearAuthCookies(res: Response): void {
   res.clearCookie(REFRESH_TOKEN_COOKIE, { path: `${API_URL}/auth/refresh` });
 }
 
-// export async function registerHandler(
-//   req: Request,
-//   res: Response
-// ): Promise<void> {
-//   try {
-//     const { name, email, password, phone } = req.body;
-
-//     if (!name || !email || !password || !phone) {
-//       res.status(400).json({ message: "name, email, password, phone are all required" });
-//       return;
-//     }
-
-//     const result = await authService.register({ name, email, password, phone });
-//     setAuthCookies(res, result.accessToken, result.refreshToken);
-//     res.status(201).json({ user: result.user });
-//   } catch (err) {
-//     handleAuthError(err, res);
-//   }
-// }
-
 export async function registerInitiateHandler(
   req: Request,
   res: Response

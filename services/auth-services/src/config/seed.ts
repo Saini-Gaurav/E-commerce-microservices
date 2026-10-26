@@ -10,7 +10,8 @@ const USERS = [
   { name: "Anita Desai",   email: "anita@test.com",  phone: "9333333333", roleCode: "ADMIN",    role: "Administrator" },
 ];
 
-const SEED_PASSWORD = "Password123!"; // same for all seeded users - fine for local dev, never do this in a real seed script for a shared/staging environment
+const SEED_PASSWORD = "Password123!"; 
+// same for all seeded users - fine for local dev, never do this in a real seed script for a shared/staging environment
 
 async function seed() {
   for (const u of USERS) {
