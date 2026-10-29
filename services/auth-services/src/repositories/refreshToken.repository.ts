@@ -10,10 +10,6 @@ export interface RefreshTokenRow {
   created_at: Date;
 }
 
-/**
- * Saves a new refresh token (already hashed by the caller — this
- * repository never sees the raw token, only its hash).
- */
 export async function storeRefreshToken(
   userId: string,
   tokenHash: string,
@@ -28,12 +24,6 @@ export async function storeRefreshToken(
   return result.rows[0];
 }
 
-/**
- * Finds a refresh token by its hash, but ONLY if it's still valid:
- * not revoked, and not past its expiry date. This single query is what
- * the "refresh access token" endpoint calls to decide whether to trust
- * the refresh token cookie a user sent us.
- */
 export async function findActiveRefreshToken(
   tokenHash: string
 ): Promise<RefreshTokenRow | undefined> {
@@ -47,13 +37,6 @@ export async function findActiveRefreshToken(
   return result.rows[0];
 }
 
-/**
- * Finds a token by hash regardless of whether it's revoked/expired.
- * Used for THEFT DETECTION: if a client presents a token hash that
- * exists in the table but is already revoked, that means someone is
- * replaying an old, already-rotated-away token — a red flag that the
- * refresh token was stolen at some point.
- */
 export async function findRefreshTokenByHash(
   tokenHash: string
 ): Promise<RefreshTokenRow | undefined> {
@@ -64,11 +47,7 @@ export async function findRefreshTokenByHash(
   return result.rows[0];
 }
 
-/**
- * Marks a token as revoked, and (optionally) records which token
- * replaced it — this is what happens on every rotation: the old
- * refresh token is revoked and linked forward to the new one.
- */
+
 export async function revokeRefreshToken(
   tokenHash: string,
   replacedByTokenHash?: string
@@ -82,11 +61,7 @@ export async function revokeRefreshToken(
   );
 }
 
-/**
- * Revokes every active refresh token for a user in one shot.
- * Used for "log out of all devices", and also as the response to
- * detected token theft (kill every session for this user just in case).
- */
+
 export async function revokeAllRefreshTokensForUser(
   userId: string
 ): Promise<void> {

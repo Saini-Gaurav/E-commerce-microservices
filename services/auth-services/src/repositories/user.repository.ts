@@ -25,11 +25,6 @@ export interface CreateUserInput {
   role: string;
 }
 
-/**
- * Back to a single INSERT ... RETURNING *, no follow-up query needed —
- * unlike the roles-table version, role_code/role live directly on this
- * row, so RETURNING * already gives us everything.
- */
 export async function createUser(input: CreateUserInput): Promise<UserRow> {
   const result = await query<UserRow>(
     `INSERT INTO users (name, email, password_hash, phone, role_code, role)
