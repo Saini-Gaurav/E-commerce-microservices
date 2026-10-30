@@ -1,6 +1,5 @@
 import { Router } from "express";
 import {
-  // registerHandler, 
   registerInitiateHandler,
   registerVerifyOtpHandler,
   loginHandler,
@@ -24,7 +23,6 @@ import { requirePermission } from "../middlewares/rbac.middleware";
 
 const router = Router();
  
-// router.post("/register", authAttemptLimiter, registerHandler); 
 router.post("/register/initiate", authAttemptLimiter, registerInitiateHandler);
 router.post("/register/verify-otp", authAttemptLimiter, registerVerifyOtpHandler);
 router.post("/login", authAttemptLimiter, loginHandler);

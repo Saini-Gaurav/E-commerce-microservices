@@ -35,7 +35,7 @@ const MAX_OTP_ATTEMPTS = 5;
 
 const VALID_ROLE_CODES = ["CUSTOMER", "ADMIN"];
 
-// A small custom error class so controllers can tell "bad input" apart from "something broke on our end" and respond with the right HTTP status code (400 vs 401 vs 500). Cleaner than throwing plain Error everywhere and guessing at the message string.
+
 export class AuthError extends Error {
   constructor(
     message: string,
@@ -46,19 +46,13 @@ export class AuthError extends Error {
   }
 }
 
-// What we return to the controller after a successful login/register/ refresh: a safe (no password_hash!) user object — now including the FULL permissions array for that user's role — plus both raw tokens ready to be put in cookies.
+
 export interface AuthResult {
   user: Omit<UserRow, "password_hash"> & { permissions: string[] };
   accessToken: string;
   refreshToken: string;
 }
 
-/**
- * Builds the user object sent back to the client: strips password_hash
- * (never send that anywhere), and attaches the current permission list
- * for this user's role, read straight from the in-memory RBAC cache —
- * no extra DB query needed, since that cache is already loaded.
- */
 function buildAuthUser(
   user: UserRow,
 ): Omit<UserRow, "password_hash"> & { permissions: string[] } {
@@ -69,11 +63,6 @@ function buildAuthUser(
   };
 }
 
-/**
- * Issues a fresh access + refresh token pair for a user, and persists the
- * new refresh token's hash. Shared by register, login, and refresh —
- * they all end with "give this user a new token pair."
- */
 async function issueTokenPair(
   user: UserRow,
 ): Promise<{ accessToken: string; refreshToken: string }> {
@@ -123,32 +112,6 @@ function toProfile(user: UserRow): Profile {
   };
 }
 
-// export async function register(input: {
-//   name: string;
-//   email: string;
-//   password: string;
-//   phone: string;
-// }): Promise<AuthResult> {
-//   const existing = await findUserByEmail(input.email);
-//   if (existing) {
-//     throw new AuthError("An account with this email already exists", 409);
-//   }
-
-//   const passwordHash = await hashPassword(input.password);
-//   const user = await createUser({
-//     name: input.name,
-//     email: input.email,
-//     passwordHash,
-//     phone: input.phone,
-//     roleCode: DEFAULT_ROLE_CODE,
-//     role: DEFAULT_ROLE_NAME,
-//   });
-
-//   const tokens = await issueTokenPair(user);
-//   return { user: buildAuthUser(user), ...tokens };
-// }
-
-// Shape of what actually sits in Redis while someone's mid-registration - nothing is in the REAL users table yet, this is the "pending" data only.
 interface PendingRegistration {
   name: string;
   email: string;
@@ -163,13 +126,6 @@ function pendingRegistrationKey(email: string): string {
   return `pending_registration:${email.toLowerCase()}`;
 }
 
-/**
- * Step 1 of registration. Does NOT touch the users table at all - see
- * the design note from our earlier discussion on why: creating a real
- * row now would permanently block this email if the person never
- * finishes verifying. Everything lives in Redis instead, with a TTL,
- * so an abandoned registration just quietly disappears on its own.
- */
 export async function initiateRegistration(input: {
   name: string;
   email: string;
@@ -211,16 +167,11 @@ export async function initiateRegistration(input: {
     lastSentAt: Date.now(),
   };
 
-  // "EX" here means "expire after this many seconds" - this single option is the entire reason Redis fits this job so well: no separate cleanup job anywhere has to remember to delete this.
   await redis.set(key, JSON.stringify(pending), "EX", OTP_EXPIRY_SECONDS);
 
   await sendOtpEmail(input.email, otp);
 }
 
-/**
- * Step 2. Only HERE does a real row finally get created in the users
- * table - this is the actual "check-in" moment from the hotel analogy.
- */
 export async function completeRegistration(input: {
   email: string;
   otp: string;
@@ -247,12 +198,10 @@ export async function completeRegistration(input: {
 
   if (hashOtp(input.otp) !== pending.otpHash) {
     pending.attempts += 1;
-    // Re-save with the incremented attempt count, keeping whatever time was left on the original TTL rather than resetting it - "KEEPTTL" means "don't extend the expiry just because they got it wrong," so a determined guesser can't keep the code alive forever by repeatedly failing.
     await redis.set(key, JSON.stringify(pending), "KEEPTTL");
     throw new AuthError("Incorrect verification code", 400);
   }
 
-  // Correct code - NOW we actually create the account.
   const user = await createUser({
     name: pending.name,
     email: pending.email,
@@ -273,7 +222,6 @@ export async function login(input: {
   password: string;
 }): Promise<AuthResult> {
   const user = await findUserByEmail(input.email);
-  // Deliberately vague error message — don't reveal WHICH part was wrong ("no such email" vs "wrong password"). Telling an attacker "that email doesn't exist" lets them enumerate valid accounts one guess at a time. Same message either way.
   if (!user) {
     throw new AuthError("Invalid email or password", 401);
   }
@@ -290,18 +238,6 @@ export async function login(input: {
   return { user: buildAuthUser(user), ...tokens };
 }
 
-/**
- * Exchanges a still-valid refresh token for a brand new token pair, and
- * ROTATES the refresh token: the old one is revoked and permanently
- * linked to its replacement, so it can never be reused.
- *
- * Includes theft detection: if the given refresh token exists in the DB
- * but is already revoked, someone is replaying an old token that we
- * already rotated away — likely because it was stolen earlier. We
- * respond by revoking EVERY refresh token for that user, forcing a full
- * re-login on all devices, rather than just quietly rejecting this one
- * request.
- */
 export async function refresh(rawRefreshToken: string): Promise<AuthResult> {
   const tokenHash = hashToken(rawRefreshToken);
   const existingToken = await findRefreshTokenByHash(tokenHash);
@@ -314,7 +250,6 @@ export async function refresh(rawRefreshToken: string): Promise<AuthResult> {
   const isRevoked = existingToken.revoked_at !== null;
 
   if (isRevoked) {
-    // Theft signal — nuke every session for this user as a precaution.
     await revokeAllRefreshTokensForUser(existingToken.user_id);
     throw new AuthError(
       "Refresh token reuse detected — all sessions revoked, please log in again",
@@ -332,13 +267,11 @@ export async function refresh(rawRefreshToken: string): Promise<AuthResult> {
   }
 
   const tokens = await issueTokenPair(user);
-  // Rotate: revoke the old token and point it at the new one's hash.
   await revokeRefreshToken(tokenHash, hashToken(tokens.refreshToken));
 
   return { user: buildAuthUser(user), ...tokens };
 }
 
-/** Logs out one session by revoking just the refresh token presented. */
 export async function logout(rawRefreshToken: string): Promise<void> {
   const tokenHash = hashToken(rawRefreshToken);
   await revokeRefreshToken(tokenHash);
@@ -348,7 +281,6 @@ export async function initiatePasswordReset(email: string): Promise<void> {
   const user = await findUserByEmail(email);
 
   if (!user) {
-    // No account - silently do nothing. The caller (controller) still returns the same "if an account exists, a code was sent" message regardless, so this early return is invisible from the outside.
     return;
   }
 
@@ -415,21 +347,11 @@ export async function resetPassword(input: {
   const newPasswordHash = await hashPassword(input.newPassword);
   await updateUserPassword(pending.userId, newPasswordHash);
 
-  // Kill every existing session for this user - same function already built for refresh-token-reuse theft detection, reused here for the reasoning explained in the design note above.
   await revokeAllRefreshTokensForUser(pending.userId);
 
   await redis.del(key);
 }
 
-/**
- * Deliberately separate from register()/completeRegistration() - this
- * skips OTP entirely, on purpose. A customer verifying their OWN email
- * makes sense; an admin creating a colleague's account is the admin
- * vouching for that person directly, so there's nothing to verify via
- * a code sent to an inbox the ADMIN doesn't control. This function
- * also lets the caller choose the role, which self-registration must
- * never be allowed to do - see DEFAULT_ROLE_CODE's own comment on why.
- */
 export async function createUserAsAdmin(input: {
   name: string;
   email: string;
