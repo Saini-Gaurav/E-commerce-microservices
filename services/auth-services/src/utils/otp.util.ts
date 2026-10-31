@@ -1,7 +1,6 @@
 import crypto from "crypto";
 
 export function generateOtp(): string {
-  // A random number between 100000 and 999999 - always exactly 6 digits.
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 

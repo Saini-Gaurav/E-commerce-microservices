@@ -1,6 +1,5 @@
 import nodemailer from "nodemailer";
 
-// A "transporter" is Nodemailer's word for "the actual connection to the email provider that will send this." Built once, reused for every email this service ever sends - not recreated per request.
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
