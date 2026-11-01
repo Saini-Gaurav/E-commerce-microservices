@@ -25,7 +25,6 @@ const CATEGORIES = [
   { name: "Herbal Teas", icon: "cup", color: "#C7B198" },
 ];
 
-// 5 products per category, generated from a small template rather than hand-typed one by one - keeps this file readable while still giving each product distinct name/price/stock so pagination and search filters actually have something to bite into.
 const PRODUCT_TEMPLATES: Record<
   string,
   { name: string; brand: string; price: number }[]
