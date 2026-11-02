@@ -24,17 +24,6 @@ interface OrderEvent {
   items: { productId: string; quantity: number }[];
 }
 
-/**
- * The atomic guard here is the actual safety net for the race condition
- * named back in the design brief: "what if stock changed between
- * order-service validating it and this update actually running."
- * `WHERE count_in_stock >= $2` means the update either succeeds AND
- * proves there was enough stock at the exact instant it ran, or
- * affects zero rows - there's no window where two concurrent orders
- * could both read "5 in stock" and both successfully subtract, ending
- * up negative. Postgres's row-level locking during the UPDATE makes
- * this safe even under real concurrent traffic, not just in theory.
- */
 async function decrementStock(
   productId: string,
   quantity: number,
@@ -47,12 +36,6 @@ async function decrementStock(
   return (result.rowCount ?? 0) > 0;
 }
 
-/**
- * No WHERE guard against going negative here, unlike decrementStock -
- * restoring stock can only ever increase the count, so there's no
- * equivalent "not enough stock" failure mode to guard against. Always
- * succeeds if the product still exists.
- */
 async function incrementStock(
   productId: string,
   quantity: number,
@@ -81,8 +64,6 @@ export async function startOrderEventsConsumer(): Promise<void> {
         return;
       }
 
-      // Both REFUNDED and CANCELLED restore stock the same way -
-      // ORDER_CREATED is the only one that ever takes stock away.
       for (const item of event.items) {
         if (event.eventType === "ORDER_CREATED" && event.userId) {
           await recordPurchase(event.userId, item.productId);
@@ -99,10 +80,6 @@ export async function startOrderEventsConsumer(): Promise<void> {
           continue;
         }
 
-        // Re-announce the product's new stock count either way - this
-        // is what keeps cart-service and order-service's OWN local
-        // caches in sync after a refund restores stock, same exact
-        // mechanism as after the original decrement.
         const updated: ProductRow | null = await findProductById(
           item.productId,
         );

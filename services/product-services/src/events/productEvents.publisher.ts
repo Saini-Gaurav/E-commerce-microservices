@@ -10,7 +10,6 @@ export async function connectProducer(): Promise<void> {
   console.log("Kafka producer connected");
 }
 
-// Called after a product is created OR updated - same event type for both, since a cache consumer treats "here's the new full state" the same way either way. No need for separate CREATED vs UPDATED events when the consumer's reaction (overwrite my local copy) is identical.
 export async function publishProductUpserted(product: ProductResponse): Promise<void> {
   if (!isConnected) return; // don't crash a request if Kafka happens to be down
   await producer.send({
