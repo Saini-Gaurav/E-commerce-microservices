@@ -47,13 +47,6 @@ export async function findReviewById(id: string): Promise<ReviewRow | null> {
   return result.rows[0] ?? null;
 }
 
-/**
- * Writes the review AND recomputes the product's aggregate rating/count
- * in ONE transaction - the same "all or nothing" reasoning as order
- * creation earlier in this build. Without the transaction, a crash
- * between the two steps could leave a review saved but the product's
- * displayed rating stale and wrong.
- */
 export async function upsertReviewAndRecalculate(input: {
   productId: string;
   userId: string;
