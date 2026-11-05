@@ -17,8 +17,6 @@ router.get(
 );
 router.get("/:id", generalLimiter, productController.getProductHandler);
 
-// Nested under products - reviews conceptually belong to a product,
-// same as categories being nested-adjacent to products in this same file.
 router.get("/:id/reviews", generalLimiter, listReviewsHandler);
 router.post("/:id/reviews", generalLimiter, requireAuth, submitReviewHandler);
 router.delete("/:id/reviews/:reviewId", generalLimiter, requireAuth, deleteReviewHandler);
