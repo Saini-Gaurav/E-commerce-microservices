@@ -71,9 +71,6 @@ export async function submitReview(
     throw new ServiceError("comment must be at least 3 characters", 400);
   }
 
-  // The actual gate discussed in the design note: "ordered it" via
-  // ORDER_CREATED, not "paid for it" or "received it." A real, named
-  // trade-off - not a silent shortcut.
   const purchased = await hasUserPurchased(userId, productId);
   if (!purchased) {
     throw new ServiceError("You can only review products you've ordered", 403);
@@ -88,8 +85,6 @@ export async function deleteReview(userId: string, reviewId: string): Promise<vo
   if (!review) throw new ServiceError("Review not found", 404);
 
   if (review.user_id !== userId) {
-    // Same ownership-privacy reasoning used throughout this build -
-    // don't confirm the review id is real to someone who doesn't own it.
     throw new ServiceError("Review not found", 404);
   }
 
