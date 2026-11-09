@@ -1,7 +1,6 @@
 import { kafka, PRODUCT_EVENTS_TOPIC } from "./kafka";
 import { upsertProductCache, deleteProductCache } from "../repositories/productCache.repository";
 
-// A DIFFERENT groupId than cart-service's "cart-service-group" - this is what makes both services get their own independent copy of every message on this topic, rather than competing for the same messages. This is the Kafka fan-out behavior mentioned in the design brief.
 const consumer = kafka.consumer({ groupId: "order-service-group" });
 
 export async function startProductEventsConsumer(): Promise<void> {

@@ -40,10 +40,6 @@ export async function startPaymentEventsConsumer(): Promise<void> {
           return;
         }
 
-        // Now the actual cascade this whole feature is FOR: look up
-        // this order's own items (payment-service never had them -
-        // only order-service does), and announce them so product-
-        // service can restore stock for each one.
         const items = await findOrderItemsByOrderId(event.orderId);
         await publishOrderRefunded(
           event.orderId,

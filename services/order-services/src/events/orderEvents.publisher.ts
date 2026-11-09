@@ -19,14 +19,6 @@ export interface RefundedOrderItem {
   quantity: number;
 }
 
-/**
- * Announces "this order was just placed" - product-service listens for
- * this to decrement its own stock. Fired AFTER the order is already
- * safely saved in this service's own database, never before - if
- * Kafka were somehow down, we'd rather have an order that exists but
- * hasn't reduced stock yet, than fail to save the order at all over a
- * messaging problem that has nothing to do with "did this order happen."
- */
 export async function publishOrderCreated(
   orderId: string,
   userId: string,
@@ -46,12 +38,6 @@ export async function publishOrderCreated(
   });
 }
 
-/**
- * The mirror-image of publishOrderCreated. Where ORDER_CREATED tells
- * product-service "these items were just committed, decrement stock,"
- * ORDER_REFUNDED tells it "these items are coming back, restore
- * stock" - same shape, same items array, opposite direction.
- */
 export async function publishOrderRefunded(
   orderId: string,
   items: RefundedOrderItem[]
@@ -69,14 +55,6 @@ export async function publishOrderRefunded(
   });
 }
 
-/**
- * Distinct from publishOrderRefunded even though both trigger the
- * SAME stock-restoration action in product-service - the event NAME
- * stays honest about what actually happened. A refund means money was
- * taken and given back; a cancellation here means no money was ever
- * taken at all. Same downstream effect, different real-world meaning,
- * worth keeping separate for anyone reading logs or events later.
- */
 export async function publishOrderCancelled(
   orderId: string,
   items: RefundedOrderItem[]
