@@ -81,9 +81,6 @@ export async function createAddress(
   }
 }
 
-// Two separate statements on purpose: the unique index is checked row by
-// row, so flipping one row to true while another is still true in the
-// same UPDATE can trip it. Clear first, then set.
 export async function setDefaultAddress(id: string, userId: string): Promise<void> {
   const client = await getClient();
   try {
@@ -119,8 +116,6 @@ export async function deleteAddress(id: string, userId: string): Promise<boolean
       return false;
     }
 
-    // Deleted the default? Promote the newest one left so the user
-    // never ends up with addresses but no default.
     if (deleted.rows[0].is_default) {
       await client.query(
         `UPDATE addresses SET is_default = true, updated_at = now()

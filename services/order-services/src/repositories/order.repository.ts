@@ -46,21 +46,6 @@ export interface CreateOrderInput {
 
 }
 
-/**
- * Inserts the order AND all its items together in ONE database
- * transaction - this is the genuine, textbook use case for a
- * transaction: either the whole order (header + every line item) gets
- * saved, or NONE of it does. Without wrapping this in BEGIN/COMMIT, a
- * crash after inserting the order but before inserting item 3 of 5
- * would leave a half-complete order sitting in the database forever -
- * exactly the kind of inconsistency a transaction exists to prevent.
- *
- * Note this is a LOCAL transaction, entirely within order-service's own
- * database - completely different from the cross-service consistency
- * problem (order-service + product-service agreeing on stock), which
- * is what the Kafka event in order.service.ts solves instead. A
- * transaction can only ever protect writes to ONE database.
- */
 export async function createOrderWithItems(
   input: CreateOrderInput
 ): Promise<{ order: OrderRow; items: OrderItemRow[] }> {
@@ -188,14 +173,6 @@ export async function findOrderByIdempotencyKey(
   return result.rows[0] ?? null;
 }
 
-/**
- * "Abandoned" = still PENDING, created longer ago than the cutoff. If
- * payment had succeeded OR failed, this order wouldn't be PENDING
- * anymore - the payment-events consumer already moved it to
- * PROCESSING or CANCELLED. The only way an order stays PENDING this
- * long is if checkout was started and then genuinely abandoned before
- * payment was ever attempted.
- */
 export async function findAbandonedPendingOrders(olderThan: Date): Promise<OrderRow[]> {
   const result = await query<OrderRow>(
     "SELECT * FROM orders WHERE status = 'PENDING' AND created_at < $1",
