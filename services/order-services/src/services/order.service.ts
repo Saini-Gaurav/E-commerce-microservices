@@ -20,7 +20,6 @@ import { ServiceError } from "../utils/errors";
 
 const ABANDONED_ORDER_TIMEOUT_MS = Number(process.env.ABANDONED_ORDER_TIMEOUT_MS) || 30 * 60 * 1000;
 
-// Only these count as revenue. PENDING never paid, CANCELLED/REFUNDED gave the money back.
 const PAID_STATUSES = ["PROCESSING", "SHIPPED", "DELIVERED"];
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -97,11 +96,6 @@ export async function createOrder(
   input: CreateOrderInput,
   idempotencyKey?: string
 ): Promise<OrderResponse> {
-  // Checked FIRST, before any validation or stock checking at all - if
-  // this exact request already succeeded once, we don't want to
-  // re-validate stock (which may have genuinely changed since) or
-  // publish a second ORDER_CREATED event. We just hand back the
-  // original result, as if this were the first and only time it ran.
   if (idempotencyKey) {
     const existing = await findOrderByIdempotencyKey(userId, idempotencyKey);
     if (existing) {
@@ -114,7 +108,6 @@ export async function createOrder(
     throw new ServiceError("An order must contain at least one item", 400);
   }
 
-  // Validate + snapshot EVERY item against the local cache before writing anything - fail the whole request if even one item is bad, rather than saving a partial order. This loop touches no database yet; it's pure validation against data already sitting in memory via Postgres reads to product_cache, no network calls at all.
   const preparedItems: {
     productId: string;
     productName: string;
@@ -130,7 +123,6 @@ export async function createOrder(
 
     const cached = await findProductInCache(item.productId);
     if (!cached) {
-      // Could genuinely mean "this product doesn't exist," OR "it exists but this service's cache hasn't heard about it yet" (the eventual-consistency gap named back in the design brief). From the client's point of view both look the same: "can't order this right now" - a 400, not a 500.
       throw new ServiceError(`Product ${item.productId} is not available`, 400);
     }
 
@@ -166,7 +158,6 @@ export async function createOrder(
     idempotencyKey,
   });
 
-  // Announce it AFTER the DB transaction has already committed - the  order is safely saved no matter what happens to this Kafka call. Deliberately not awaited-and-blocking the response any further than this one call; if this throws, we log it but still return the order successfully (see publishOrderCreated's own internal handling) - a stock-decrement delay is not a reason to tell the customer their order failed when it didn't.
   await publishOrderCreated(
     order.id,
     userId,
@@ -177,13 +168,6 @@ export async function createOrder(
   return toOrderResponse(order, items);
 }
 
-/**
- * Ownership + RBAC combined: an admin (isAdminOverride = true, decided
- * by the controller checking permissions) can view ANY order; anyone
- * else can only view their OWN. This is the pattern named back when we
- * started this service - order-service is the first one needing both
- * kinds of authorization on the same action.
- */
 export async function getOrderById(
   orderId: string,
   requestingUserId: string,
@@ -194,7 +178,6 @@ export async function getOrderById(
     throw new ServiceError("Order not found", 404);
   }
   if (!isAdminOverride && order.user_id !== requestingUserId) {
-    // 404, not 403: telling a non-owner "this exists but isn't yours" confirms the order id is valid, which is itself a small information leak (e.g. confirms guessed sequential-feeling ids are real). Pretending it doesn't exist at all reveals nothing.
     throw new ServiceError("Order not found", 404);
   }
 
@@ -258,22 +241,12 @@ export async function updateStatus(orderId: string, status: string): Promise<Ord
     throw new ServiceError("Order not found", 404);
   }
 
-  // This is the ONLY gap that was left open before this feature - every
-  // other status transition in this service was already announced
-  // (PROCESSING/CANCELLED/REFUNDED via Kafka consumers reacting to
-  // payment events), but an admin manually setting SHIPPED/DELIVERED
-  // from /admin/orders never told anyone. Now it does.
   await publishOrderStatusUpdated(orderId, updated.user_id, status);
 
   const items = await findOrderItemsByOrderId(orderId);
   return toOrderResponse(updated, items);
 }
 
-/**
- * Called on a timer (see jobs/abandonedOrderSweep.ts), not from any
- * HTTP route - this is a background maintenance task, not something
- * a user or admin ever directly triggers.
- */
 export async function sweepAbandonedOrders(): Promise<void> {
   const cutoff = new Date(Date.now() - ABANDONED_ORDER_TIMEOUT_MS);
   const abandoned = await findAbandonedPendingOrders(cutoff);
