@@ -1,7 +1,6 @@
 import { kafka, PRODUCT_EVENTS_TOPIC } from "./kafka";
 import { upsertProductCache, deleteProductCache } from "../repositories/productCache.repository";
 
-// "cart-service-group" - Kafka uses this to remember, across restarts, which announcements this service has already heard, so it doesn't reprocess the entire history every time it reconnects.
 const consumer = kafka.consumer({ groupId: "cart-service-group" });
 
 export async function startProductEventsConsumer(): Promise<void> {

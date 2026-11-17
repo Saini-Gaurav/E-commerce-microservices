@@ -4,7 +4,6 @@ import { broadcastCartToUser } from "./sseManager";
 
 const ORDER_EVENTS_TOPIC = "order-events";
 
-// A distinct groupId from productEvents.consumer.ts's - each consumer within the SAME service still needs its own group, same fan-out reasoning as across different services entirely.
 const consumer = kafka.consumer({ groupId: "cart-service-order-events-group" });
 
 interface OrderCreatedEvent {
@@ -22,7 +21,6 @@ export async function startOrderEventsConsumer(): Promise<void> {
       if (!message.value) return;
       const event = JSON.parse(message.value.toString()) as OrderCreatedEvent;
 
-      // Defensive shape check - same poison-pill lesson from payment-service's earlier crash. Never trust an old or malformed message just because it arrived on the right topic.
       if (event.eventType !== "ORDER_CREATED" || typeof event.userId !== "string") {
         return;
       }
