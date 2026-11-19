@@ -9,7 +9,6 @@ export interface CartItemRow {
   updated_at: Date;
 }
 
-// Makes sure a cart row exists for this user. Safe to call every time - if the cart is already there, this quietly does nothing (that's what ON CONFLICT DO NOTHING means: "try to insert, but if it's already there, don't error, just skip it").
 export async function ensureCartExists(userId: string): Promise<void> {
   await query(
     `INSERT INTO carts (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`,
@@ -36,13 +35,6 @@ export async function findCartItem(
   return result.rows[0] ?? null;
 }
 
-/**
- * Adds a product to the cart, OR, if it's already in there, just bumps
- * up the quantity instead of making a second row for the same product.
- * "ON CONFLICT ... DO UPDATE" is Postgres's built-in way of saying
- * "try to insert, but if that would collide with a row that's already
- * there, update that row instead."
- */
 export async function upsertCartItem(
   userId: string,
   productId: string,
@@ -59,7 +51,6 @@ export async function upsertCartItem(
   return result.rows[0];
 }
 
-// Sets the quantity to an EXACT number (not "add more") - used when someone types "3" into a quantity box on the cart page.
 export async function setCartItemQuantity(
   userId: string,
   productId: string,
